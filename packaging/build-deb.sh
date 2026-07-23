@@ -124,6 +124,15 @@ cp -r "$VENDOR/piper" "$STAGING/usr/lib/tomenotas/piper"
 chmod 755 "$STAGING/usr/lib/tomenotas/whisper-cli" \
           "$STAGING/usr/lib/tomenotas/piper/piper"
 
+# licença (Debian policy: /usr/share/doc/<pacote>/copyright)
+mkdir -p "$STAGING/usr/share/doc/tomenotas"
+{
+    echo "Tomenotas — MIT License"
+    echo "Componentes embutidos: whisper.cpp (MIT), Piper (MIT)."
+    echo ""
+    cat "$ROOT/LICENSE"
+} > "$STAGING/usr/share/doc/tomenotas/copyright"
+
 # ícones e lançadores de desktop
 cp "$ROOT/assets/icons/"*.svg "$STAGING/usr/share/tomenotas/icons/"
 cp "$ROOT/packaging/tomenotas.desktop" "$STAGING/usr/share/applications/"

@@ -237,3 +237,14 @@ arecord -f cd -t wav teste.wav
 # fale algo, Ctrl+C para parar, depois:
 aplay teste.wav
 ```
+
+## Licença
+
+Este projeto é **open source** sob a licença [MIT](LICENSE) — use,
+modifique e redistribua à vontade, mantendo o aviso de copyright.
+
+Componentes embutidos no pacote `.deb`, também MIT:
+[whisper.cpp](https://github.com/ggerganov/whisper.cpp) e
+[Piper](https://github.com/rhasspy/piper). A voz `pt_BR-faber-medium` e
+os modelos whisper são baixados pelo app no primeiro uso, sob as
+licenças dos seus respectivos projetos.

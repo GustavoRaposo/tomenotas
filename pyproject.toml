@@ -6,6 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "tomenotas"
 version = "1.3.0"
 description = "Assistente pessoal de notas de voz para Ubuntu/GNOME (STT/TTS offline)"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 # PyGObject (gi) vem do apt (python3-gi) via venv --system-site-packages,
 # não do pip — compilar PyGObject via pip exige toolchain e headers extras.
