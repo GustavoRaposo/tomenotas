@@ -55,9 +55,9 @@ O instalador:
 2. Clona e compila o `whisper.cpp`, baixando o modelo escolhido (padrão:
    `medium`).
 3. Baixa o binário do Piper e a voz `pt_BR-faber-medium`.
-4. Copia os scripts e o daemon (`tomenotas-daemon` +
-   `tomenotas-hotkey-record`) para `~/bin` e ajusta os caminhos
-   automaticamente.
+4. Copia os scripts bash + `tomenotas-hotkey-record` para `~/bin`, instala o
+   daemon como pacote Python num venv (`~/.local/share/tomenotas/venv`) e
+   grava os caminhos do whisper em `~/.config/tomenotas/config.json`.
 5. Configura os atalhos de teclado no GNOME via `gsettings`:
    - **Super+R** — gravar/parar (via daemon: só funciona com ele rodando)
    - **Super+L** — listar notas
@@ -93,12 +93,14 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ~/bin/gravar.sh
 ~/bin/listar.sh
 ~/bin/ler.sh
-~/bin/tomenotas-daemon          # daemon (bandeja + D-Bus + gravação)
+~/bin/tomenotas-daemon          # daemon (link para o venv abaixo)
 ~/bin/tomenotas-hotkey-record   # cliente D-Bus chamado pelo Super+R
+~/.config/tomenotas/config.json # caminhos do whisper (lidos pelo daemon)
 ~/.local/share/tomenotas/
+├── venv/               # pacote Python do daemon
 ├── notes/              # suas notas de texto (.txt)
 ├── current_note        # ponteiro para a nota selecionada em listar.sh
-└── recording.pid        # existe só enquanto uma gravação está em andamento
+└── recording.pid        # usado só pelo gravar.sh legado, não pelo daemon
 ~/whisper.cpp/           # binário e modelo do whisper.cpp
 ~/piper/                 # binário e voz do Piper
 ```
@@ -126,6 +128,20 @@ find ~/.local/share/tomenotas/notes/ -name "*.txt" -mtime +30 -delete
 ./uninstall.sh --purge-notes          # também apaga suas notas
 ./uninstall.sh --purge-deps           # também remove whisper.cpp e Piper
 ./uninstall.sh --purge-notes --purge-deps   # remove tudo
+```
+
+## Desenvolvimento
+
+O daemon é um pacote Python (`src/tomenotas/`) desenvolvido com TDD: a
+lógica (gravação, transcrição, notas, máquina de estados) é pura e coberta
+por testes, com gate de 90% de cobertura (`pytest` falha abaixo disso). A
+camada de cola GTK/AppIndicator/D-Bus (`daemon.py`) é fina, fica fora da
+métrica e é validada manualmente.
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+pytest          # roda a suíte com relatório de cobertura
 ```
 
 ## Solução de problemas

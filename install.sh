@@ -39,7 +39,7 @@ PIPER_DIR="$HOME/piper"
 echo "==> Instalando dependências do sistema (apt)..."
 sudo apt update
 sudo apt install -y zenity alsa-utils libnotify-bin git cmake build-essential wget unzip curl pulseaudio-utils \
-    python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1
+    python3-venv python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1
 
 echo "==> Criando diretórios..."
 mkdir -p "$BIN_DIR" "$NOTES_DIR"
@@ -48,10 +48,17 @@ echo "==> Copiando scripts para $BIN_DIR..."
 cp "$SCRIPT_DIR/gravar.sh" "$BIN_DIR/gravar.sh"
 cp "$SCRIPT_DIR/listar.sh" "$BIN_DIR/listar.sh"
 cp "$SCRIPT_DIR/ler.sh" "$BIN_DIR/ler.sh"
-cp "$SCRIPT_DIR/tomenotas-daemon" "$BIN_DIR/tomenotas-daemon"
 cp "$SCRIPT_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-record"
 chmod +x "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh" "$BIN_DIR/ler.sh" \
-    "$BIN_DIR/tomenotas-daemon" "$BIN_DIR/tomenotas-hotkey-record"
+    "$BIN_DIR/tomenotas-hotkey-record"
+
+echo "==> Instalando o daemon (pacote Python em venv)..."
+VENV_DIR="$DATA_DIR/venv"
+# --system-site-packages: o PyGObject (gi) vem do apt, não do pip
+python3 -m venv --system-site-packages "$VENV_DIR"
+"$VENV_DIR/bin/pip" install -q --upgrade pip
+"$VENV_DIR/bin/pip" install -q "$SCRIPT_DIR"
+ln -sf "$VENV_DIR/bin/tomenotas-daemon" "$BIN_DIR/tomenotas-daemon"
 
 if [ "$SKIP_WHISPER" -eq 0 ]; then
     if [ -d "$WHISPER_DIR" ]; then
@@ -81,14 +88,22 @@ if [ "$SKIP_WHISPER" -eq 0 ]; then
         echo "AVISO: não encontrei o binário compilado automaticamente. Verifique $WHISPER_DIR/build/bin/"
     fi
 
-    echo "==> Ajustando caminhos do whisper.cpp em gravar.sh e tomenotas-daemon..."
+    echo "==> Ajustando caminhos do whisper.cpp em gravar.sh..."
     sed -i "s|^WHISPER_BIN=.*|WHISPER_BIN=\"$WHISPER_BIN_PATH\"|" "$BIN_DIR/gravar.sh"
     sed -i "s|^WHISPER_MODEL=.*|WHISPER_MODEL=\"$MODEL_FILE\"|" "$BIN_DIR/gravar.sh"
-    # o daemon é Python, então o formato da atribuição é diferente (VAR = "...")
-    sed -i "s|^WHISPER_BIN = .*|WHISPER_BIN = \"$WHISPER_BIN_PATH\"|" "$BIN_DIR/tomenotas-daemon"
-    sed -i "s|^WHISPER_MODEL = .*|WHISPER_MODEL = \"$MODEL_FILE\"|" "$BIN_DIR/tomenotas-daemon"
+
+    # O daemon lê os caminhos de ~/.config/tomenotas/config.json (nada de sed)
+    echo "==> Gravando caminhos do whisper.cpp em ~/.config/tomenotas/config.json..."
+    CONFIG_DIR="$HOME/.config/tomenotas"
+    mkdir -p "$CONFIG_DIR"
+    cat > "$CONFIG_DIR/config.json" <<EOF
+{
+    "whisper_bin": "$WHISPER_BIN_PATH",
+    "whisper_model": "$MODEL_FILE"
+}
+EOF
 else
-    echo "==> Pulando instalação do whisper.cpp (--skip-whisper). Ajuste WHISPER_BIN e WHISPER_MODEL manualmente em $BIN_DIR/gravar.sh e $BIN_DIR/tomenotas-daemon"
+    echo "==> Pulando instalação do whisper.cpp (--skip-whisper). Ajuste WHISPER_BIN em $BIN_DIR/gravar.sh e os caminhos em ~/.config/tomenotas/config.json"
 fi
 
 if [ "$SKIP_PIPER" -eq 0 ]; then

@@ -54,6 +54,9 @@ echo "==> Removendo scripts de $BIN_DIR..."
 rm -f "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh" "$BIN_DIR/ler.sh" \
       "$BIN_DIR/tomenotas-daemon" "$BIN_DIR/tomenotas-hotkey-record"
 
+echo "==> Removendo venv do daemon e configuração..."
+rm -rf "$DATA_DIR/venv" "$HOME/.config/tomenotas"
+
 # remove processo de gravação pendente, se houver
 if [ -f "$DATA_DIR/recording.pid" ]; then
     kill -SIGINT "$(cat "$DATA_DIR/recording.pid")" 2>/dev/null
