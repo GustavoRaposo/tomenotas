@@ -77,6 +77,10 @@ class TrayDaemon:
         core.on_state_change = (
             lambda estado: GLib.idle_add(self._on_estado, estado)
         )
+        # Fase 5: clicar numa notificação abre a janela de notas
+        notifier.on_activate = (
+            lambda: GLib.idle_add(self.show_window)
+        )
 
     # ---------------- Bandeja (AppIndicator) ----------------
 

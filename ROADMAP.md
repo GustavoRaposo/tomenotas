@@ -127,6 +127,8 @@ na bandeja, sem abrir a janela.
       .deb fica como ideia futura no backlog
 - [x] Atualizar `install.sh`/`uninstall.sh` para instalar/remover o daemon
       e o autostart
+- [x] Clicar em uma notificação e abrir a tela do Tomenotas
+- [x] Alterar o título da notificação para Tomenotas em vez de notify-send
 
 ## Ideias para depois (backlog, sem compromisso)
 
