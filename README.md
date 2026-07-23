@@ -20,6 +20,9 @@ rodando localmente na sua máquina.
   seleção. A nota escolhida vira a "nota atual".
 - **Ler**: lê em voz alta (TTS em português) a nota atual selecionada, ou a
   mais recente se nenhuma foi escolhida ainda.
+- **Notas críticas (alarme)**: grave com Super+I e a nota vira um alarme —
+  notificações periódicas com som até você desativá-la na tela de notas.
+  Intervalo e toque configuráveis; Super+K lê a crítica mais recente.
 
 Cada gravação gera um arquivo `.txt` próprio. O áudio bruto (`.wav`) é
 temporário e apagado automaticamente depois da transcrição — só o texto fica
@@ -67,8 +70,10 @@ você abrir o app (menu de aplicativos → **Tomenotas**):
 
 1. O daemon **registra sozinho os atalhos de teclado** no GNOME:
    - **Super+R** — gravar/parar (só funciona com o daemon rodando)
+   - **Super+I** — gravar nota **crítica** (vira alarme periódico)
    - **Super+Y** — listar notas
    - **Super+T** — ler nota atual
+   - **Super+K** — ler a nota crítica mais recente
 2. A janela abre em **Configurações** pedindo o download do **modelo de
    transcrição** (escolha o tamanho — `medium` recomendado) e da **voz**
    — com barra de progresso; é a única hora em que algo é baixado.
@@ -111,9 +116,14 @@ são necessárias só nessa máquina, nunca na de quem instala o `.deb`.
    - **Tags**: criar, listar (com nº de notas), renomear (unindo com a
      existente se o nome coincidir) e apagar tags — apagar uma tag nunca
      apaga as notas.
-   - **Configurações**: troque os 3 atalhos — clique no campo, pressione a
-     nova combinação e pronto (efeito imediato; avisa se a combinação já
-     estiver em uso por outro app).
+   - **Configurações**: troque os atalhos (clique no campo, pressione a
+     nova combinação — efeito imediato, com aviso de conflito), a voz, o
+     modelo de transcrição, o intervalo e o toque do alarme de notas
+     críticas, e o espelho .txt.
+3. **Notas críticas**: uma nota gravada com Super+I (ou marcada com ⏰ na
+   lista/detalhe) dispara notificação com som no intervalo configurado,
+   até ser desativada (clicando no ⏰ de novo). Sem críticas ativas,
+   nenhum alarme roda.
 4. **Super+Y** → abre a mesma janela de notas (só funciona com o daemon
    rodando). (O padrão era Super+L, trocado porque em muitos GNOME essa
    combinação já bloqueia a tela.)

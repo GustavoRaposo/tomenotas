@@ -65,7 +65,7 @@ class SqliteNoteStore:
             if mirror_dir is not None:
                 self.notes_dir = Path(mirror_dir)
 
-    def save(self, text: str) -> DbNote:
+    def save(self, text: str, critical: bool = False) -> DbNote:
         with self._lock:
             now = self._now()
             name = None
@@ -78,9 +78,10 @@ class SqliteNoteStore:
                     counter += 1
                 (self.notes_dir / name).write_text(text, encoding="utf-8")
             cursor = self._conn.execute(
-                "INSERT INTO notes (created_at, text, favorite, filename) "
-                "VALUES (?, ?, 0, ?)",
-                (now.isoformat(timespec="seconds"), text, name),
+                "INSERT INTO notes (created_at, text, favorite, filename, "
+                "critical) VALUES (?, ?, 0, ?, ?)",
+                (now.isoformat(timespec="seconds"), text, name,
+                 int(bool(critical))),
             )
             return self._note(cursor.lastrowid)
 
@@ -125,6 +126,25 @@ class SqliteNoteStore:
                 "UPDATE notes SET favorite = ? WHERE id = ?",
                 (int(bool(value)), note_id),
             )
+
+    # ---------------- critical notes (alarm) ----------------
+
+    def set_critical(self, note_id: int, value: bool) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE notes SET critical = ? WHERE id = ?",
+                (int(bool(value)), note_id),
+            )
+
+    def active_criticals(self) -> list[DbNote]:
+        """Active critical notes, most recent first — drives the alarm
+        and the read-latest-critical hotkey."""
+        with self._lock:
+            ids = [row[0] for row in self._conn.execute(
+                "SELECT id FROM notes WHERE critical = 1 "
+                "ORDER BY created_at DESC, id DESC"
+            )]
+            return [self._note(note_id) for note_id in ids]
 
     def add_tag(self, note_id: int, name: str) -> None:
         with self._lock:
@@ -265,7 +285,7 @@ class SqliteNoteStore:
 
     def _note(self, note_id: int) -> DbNote:
         row = self._conn.execute(
-            "SELECT id, created_at, text, favorite, filename "
+            "SELECT id, created_at, text, favorite, filename, critical "
             "FROM notes WHERE id = ?", (note_id,)
         ).fetchone()
         tags = tuple(t[0] for t in self._conn.execute(
@@ -277,6 +297,7 @@ class SqliteNoteStore:
         return DbNote(
             id=row[0], created_at=row[1], text=row[2],
             favorite=bool(row[3]), tags=tags, filename=row[4],
+            critical=bool(row[5]),
         )
 
     def _import_txt(self) -> int:

@@ -43,10 +43,20 @@ clients that die silently when it isn't running:
   - **`app/core.py`** — the use case: `DaemonCore` state machine (idle →
     recording → transcribing), fully synchronous, no GTK/D-Bus/threads;
     I/O ports (recorder/transcriber/notes/notifier) are injected.
-    `toggle()` returns a `ToggleAction` telling the glue what to do next;
-    `on_state_change` is the observer hook for the tray icon (may fire
-    from the transcription worker thread — the glue wraps it in
-    `GLib.idle_add`).
+    `toggle(critical=False)` returns a `ToggleAction` telling the glue
+    what to do next (critical=True → the saved note is born critical;
+    the mode is set by the hotkey that STARTS the recording);
+    `read_current_critical()` reads the latest active critical aloud.
+    Observer hooks (both may fire from the transcription thread — glue
+    wraps in `GLib.idle_add`): `on_state_change` (tray icon) and
+    `on_note_saved` (arms the alarm).
+  - **`app/alarm.py`** — `CriticalAlarm`: periodic notification + sound
+    for active critical notes. **Event-driven by explicit requirement**:
+    with no active critical there is NO timer running; `refresh()`
+    arms/disarms from the store and is called on startup, note saved,
+    critical toggled, delete and interval change — never polling. The
+    one-shot timer is injected (`schedule`/`cancel`; glue passes
+    GLib.timeout_add_seconds/source_remove), keeping it fully testable.
   - **`infra/`** — injectable I/O adapters: `recorder.py` (arecord),
     `transcriber.py` (whisper.cpp), `player.py` (Piper + paplay),
     `notify.py` (notify-send, `--app-name=Tomenotas`, click action),
@@ -63,10 +73,14 @@ clients that die silently when it isn't running:
     `DaemonCore.toggle()` refuses to record while
     `transcriber.is_ready()` is False),
     `config.py` (`~/.config/tomenotas/config.json` + `TOMENOTAS_*` env),
-    `logs.py` (rotating `daemon.log`), and `notes_db.py` +
+    `logs.py` (rotating `daemon.log`),
+    `sound.py` (`AlarmSound` — alarm ringtone via paplay, best-effort,
+    configurable file with freedesktop default), and `notes_db.py` +
     `migrations.py` — SQLite storage, the source of truth
     (`~/.local/share/tomenotas/notes.db`): FTS5 search with combinable
-    filters and bm25 ranking, tags (CRUD incl. rename-merge), favorites.
+    filters and bm25 ranking, tags (CRUD incl. rename-merge), favorites,
+    and critical notes (`critical` column v3, `set_critical`,
+    `active_criticals()` — most recent first, drives the alarm).
     **Every schema change MUST be a new immutable `Migration` appended to
     `MIGRATIONS`** (never edit a published one) plus a test that migrates
     a *populated* older-version db and proves nothing is lost; version in
@@ -84,7 +98,8 @@ clients that die silently when it isn't running:
     `settings_page.py`): GTK main loop, `AyatanaAppIndicator3` tray with
     "Abrir"/"Configurações"/"Sair", D-Bus name `com.tomenotas.Daemon` at
     `/com/tomenotas/Daemon` with
-    `ToggleRecording()`/`ReadCurrentNote()`/`ShowWindow()`/`ShowSettings()`/`Ping()`,
+    `ToggleRecording()`/`ToggleCriticalRecording()`/`ReadCurrentNote()`/
+    `ReadCurrentCritical()`/`ShowWindow()`/`ShowSettings()`/`Ping()`,
     threading for slow work (transcription, TTS synthesis), and the
     single main window with a `Gtk.StackSidebar` of three pages: Notas
     (FTS search re-querying the db, tag dropdown, favorite star, tag
@@ -96,7 +111,9 @@ clients that die silently when it isn't running:
     its `handle_key`; sections: Atalhos, Voz (Piper voice dropdown backed
     by `VoiceManager` + first-run default-voice download), Modelo de
     transcrição (whisper size download/switch backed by `ModelManager`,
-    with progress bars) and Espelho .txt (switch + folder chooser + "?"
+    with progress bars), Notas críticas (alarm interval combo + ringtone
+    file chooser with preview, delegating to `CriticalAlarm`/`AlarmSound`)
+    and Espelho .txt (switch + folder chooser + "?"
     help, delegating to `store.set_mirror` and `update_config_file`). Window close hides —
     the daemon stays in the tray. Deliberately thin and dumb: only builds
     widgets and delegates to the tested core. The whole layer is
@@ -107,8 +124,10 @@ clients that die silently when it isn't running:
   `--system-site-packages` venv at `~/.local/share/tomenotas/venv` and
   symlinks `~/tomenotas/tomenotas-daemon`).
 - **`tomenotas-hotkey-record`** (Super+R) / **`tomenotas-hotkey-window`**
-  (Super+Y) / **`tomenotas-hotkey-read`** (Super+T) — thin bash D-Bus
-  clients, the targets of the keybindings. They just call
+  (Super+Y) / **`tomenotas-hotkey-read`** (Super+T) /
+  **`tomenotas-hotkey-critical`** (Super+I, records a critical note) /
+  **`tomenotas-hotkey-critical-read`** (Super+K, reads the latest active
+  critical) — thin bash D-Bus clients, the targets of the keybindings. They just call
   `ToggleRecording()` / `ShowWindow()` / `ReadCurrentNote()` via `gdbus`;
   if the daemon isn't running the call fails silently, so the shortcuts
   are dead unless the app is open (this is the intended behavior — don't

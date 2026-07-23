@@ -23,10 +23,14 @@ class DaemonCore:
         self._notifier = notifier
         self._player = player  # used by read_current_note (Super+T)
         self._state = State.IDLE
+        self._pending_critical = False  # mode of the recording in course
         # Observer for state changes (tray icon).
         # Careful: finish_recording runs in a thread — the glue wraps
         # this with GLib.idle_add.
         self.on_state_change = None
+        # Observer for saved notes (arms the critical alarm). Also fires
+        # from the transcription thread — glue wraps with GLib.idle_add.
+        self.on_note_saved = None
 
     @property
     def state(self) -> State:
@@ -40,8 +44,12 @@ class DaemonCore:
         if self.on_state_change is not None:
             self.on_state_change(new)
 
-    def toggle(self) -> ToggleAction:
+    def toggle(self, critical: bool = False) -> ToggleAction:
+        """critical=True (Super+I): same recording flow, but the saved
+        note is born critical. The mode is set by the hotkey that STARTS
+        the recording; either hotkey stops it."""
         if self.state is State.IDLE:
+            self._pending_critical = critical
             return self._start()
         if self.state is State.RECORDING:
             self._set_state(State.TRANSCRIBING)
@@ -88,9 +96,16 @@ class DaemonCore:
             log.error("transcription failed: %s", error)
             self._notifier.send("Erro", str(error))
         else:
-            path = self._notes.save(text)
-            log.info("note created: %s", path)
-            self._notifier.send("Nota criada", preview(text))
+            note = self._notes.save(text, critical=self._pending_critical)
+            log.info("note created: %s (critical=%s)", note,
+                     self._pending_critical)
+            self._notifier.send(
+                "Nota crítica criada" if self._pending_critical
+                else "Nota criada",
+                preview(text),
+            )
+            if self.on_note_saved is not None:
+                self.on_note_saved(note)
         finally:
             self._recorder.audio_tmp.unlink(missing_ok=True)
             self._set_state(State.IDLE)
@@ -107,6 +122,20 @@ class DaemonCore:
             self._player.play(notes[0].text)
         except PlayerError as error:
             log.error("read-aloud failed: %s", error)
+            self._notifier.send("Erro", str(error))
+
+    def read_current_critical(self) -> None:
+        """Reads the most recent ACTIVE critical note aloud (Super+K).
+        Synchronous and slow (TTS) — the glue calls it in a thread."""
+        criticals = self._notes.active_criticals()
+        if not criticals:
+            self._notifier.send("Notas críticas",
+                                "Nenhuma nota crítica ativa.")
+            return
+        try:
+            self._player.play(criticals[0].text)
+        except PlayerError as error:
+            log.error("critical read-aloud failed: %s", error)
             self._notifier.send("Erro", str(error))
 
     def shutdown(self) -> None:

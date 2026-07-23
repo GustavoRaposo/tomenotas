@@ -66,8 +66,11 @@ echo "==> Copiando scripts para $BIN_DIR..."
 cp "$SCRIPT_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-record"
 cp "$SCRIPT_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-window"
 cp "$SCRIPT_DIR/tomenotas-hotkey-read" "$BIN_DIR/tomenotas-hotkey-read"
+cp "$SCRIPT_DIR/tomenotas-hotkey-critical" "$BIN_DIR/tomenotas-hotkey-critical"
+cp "$SCRIPT_DIR/tomenotas-hotkey-critical-read" "$BIN_DIR/tomenotas-hotkey-critical-read"
 cp "$SCRIPT_DIR/tomenotas-open" "$BIN_DIR/tomenotas-open"
 chmod +x "$BIN_DIR/tomenotas-hotkey-record" \
+    "$BIN_DIR/tomenotas-hotkey-critical" "$BIN_DIR/tomenotas-hotkey-critical-read" \
     "$BIN_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-read" \
     "$BIN_DIR/tomenotas-open"
 # limpa scripts legados de instalações anteriores (aposentados)
@@ -195,49 +198,16 @@ with open(sys.argv[1], "w", encoding="utf-8") as out:
 EOF
 
 if [ "$SKIP_SHORTCUTS" -eq 0 ]; then
-    echo "==> Configurando atalhos de teclado no GNOME..."
-    echo "    Gravar/parar : Super+R"
-    echo "    Listar notas : Super+Y"
-    echo "    Ler nota     : Super+T"
-
-    BASE_PATH="/org/gnome/settings-daemon/plugins/media-keys"
-    KEY_GRAVAR="$BASE_PATH/custom-keybindings/tomenotas-gravar/"
-    KEY_LISTAR="$BASE_PATH/custom-keybindings/tomenotas-listar/"
-    KEY_LER="$BASE_PATH/custom-keybindings/tomenotas-ler/"
-
-    EXISTING=$(gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings)
-    if [ "$EXISTING" = "@as []" ] || [ "$EXISTING" = "[]" ]; then
-        NEW_LIST="['$KEY_GRAVAR', '$KEY_LISTAR', '$KEY_LER']"
-    else
-        # remove colchetes e adiciona os novos, evitando duplicar se já existirem
-        TRIMMED="${EXISTING%]}"
-        TRIMMED="${TRIMMED#[}"
-        NEW_LIST="[$TRIMMED, '$KEY_GRAVAR', '$KEY_LISTAR', '$KEY_LER']"
-    fi
-    gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "$NEW_LIST"
-
-    # O atalho de gravar chama o cliente D-Bus leve, não o gravar.sh: assim
-    # ele só funciona enquanto o tomenotas-daemon estiver rodando (Fase 1).
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_GRAVAR" name 'Tomenotas - Gravar'
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_GRAVAR" command "$BIN_DIR/tomenotas-hotkey-record"
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_GRAVAR" binding '<Super>r'
-
-    # O atalho de listar abre a janela de notas do daemon via D-Bus — como o
-    # de gravar, só funciona enquanto o tomenotas-daemon estiver rodando.
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LISTAR" name 'Tomenotas - Listar'
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LISTAR" command "$BIN_DIR/tomenotas-hotkey-window"
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LISTAR" binding '<Super>y'
-
-    # O atalho de ler chama o daemon via D-Bus — como os demais, só
-    # funciona enquanto o tomenotas-daemon estiver rodando.
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LER" name 'Tomenotas - Ler'
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LER" command "$BIN_DIR/tomenotas-hotkey-read"
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LER" binding '<Super>t'
-
-    echo "==> Atalhos configurados. Se algum já estiver em uso por outro app, mude em:"
-    echo "    Configurações > Teclado > Atalhos personalizados"
+    echo "==> Atalhos de teclado (registrados pelo daemon na 1ª execução):"
+    echo "    Gravar/parar        : Super+R"
+    echo "    Gravar nota crítica : Super+I"
+    echo "    Listar notas        : Super+Y"
+    echo "    Ler nota            : Super+T"
+    echo "    Ler crítica         : Super+K"
+    # O registro em si é feito pelo daemon (ShortcutManager.ensure_defaults)
+    # na primeira execução — fonte única, a mesma usada pela rota .deb.
 else
-    echo "==> Pulando configuração de atalhos (--skip-shortcuts). Configure manualmente em Configurações > Teclado."
+    echo "==> Pulando atalhos (--skip-shortcuts): o daemon os registraria na 1ª execução."
 fi
 
 echo ""
@@ -245,7 +215,8 @@ echo "==================================================="
 echo " Instalação concluída!"
 echo " Scripts em: $BIN_DIR"
 echo " Notas em:   $NOTES_DIR"
-echo " Atalhos:    Super+R (gravar), Super+Y (listar), Super+T (ler)"
+echo " Atalhos:    Super+R (gravar), Super+I (crítica), Super+Y (listar),"
+echo "             Super+T (ler), Super+K (ler crítica)"
 echo ""
 echo " Inicie o daemon com: $BIN_DIR/tomenotas-daemon &"
 echo " No primeiro uso, o app abre as Configurações para baixar o"

@@ -32,13 +32,15 @@ BASE_PATH="/org/gnome/settings-daemon/plugins/media-keys"
 KEY_GRAVAR="$BASE_PATH/custom-keybindings/tomenotas-gravar/"
 KEY_LISTAR="$BASE_PATH/custom-keybindings/tomenotas-listar/"
 KEY_LER="$BASE_PATH/custom-keybindings/tomenotas-ler/"
+KEY_CRITICA="$BASE_PATH/custom-keybindings/tomenotas-critica/"
+KEY_LER_CRITICA="$BASE_PATH/custom-keybindings/tomenotas-ler-critica/"
 
 EXISTING=$(gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings 2>/dev/null)
 
 if [ -n "$EXISTING" ]; then
     NEW_LIST=$(python3 -c "
 existing = $EXISTING
-to_remove = ['$KEY_GRAVAR', '$KEY_LISTAR', '$KEY_LER']
+to_remove = ['$KEY_GRAVAR', '$KEY_LISTAR', '$KEY_LER', '$KEY_CRITICA', '$KEY_LER_CRITICA']
 result = [x for x in existing if x not in to_remove]
 print(result)
 " 2>/dev/null)
@@ -49,7 +51,7 @@ print(result)
 fi
 
 # limpa também as chaves de cada atalho (senão ficam órfãs no dconf)
-for key in "$KEY_GRAVAR" "$KEY_LISTAR" "$KEY_LER"; do
+for key in "$KEY_GRAVAR" "$KEY_LISTAR" "$KEY_LER" "$KEY_CRITICA" "$KEY_LER_CRITICA"; do
     gsettings reset-recursively \
         "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$key" \
         2>/dev/null
@@ -63,6 +65,8 @@ for dir in "$BIN_DIR" "$OLD_BIN_DIR"; do
     rm -f "$dir/gravar.sh" "$dir/listar.sh" "$dir/ler.sh" \
           "$dir/tomenotas-daemon" "$dir/tomenotas-hotkey-record" \
           "$dir/tomenotas-hotkey-window" "$dir/tomenotas-hotkey-read" \
+          "$dir/tomenotas-hotkey-critical" \
+          "$dir/tomenotas-hotkey-critical-read" \
           "$dir/tomenotas-open"
 done
 rmdir "$BIN_DIR" 2>/dev/null  # só se ficou vazia (~/tomenotas é nossa)

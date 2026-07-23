@@ -73,6 +73,15 @@ class ShortcutManager:
                 "ler", "Tomenotas - Ler", "Ler nota atual",
                 str(bin_dir / "tomenotas-hotkey-read"), "<Super>t",
             ),
+            "critica": Action(
+                "critica", "Tomenotas - Critica", "Gravar nota crítica",
+                str(bin_dir / "tomenotas-hotkey-critical"), "<Super>i",
+            ),
+            "ler-critica": Action(
+                "ler-critica", "Tomenotas - Ler Critica",
+                "Ler crítica mais recente",
+                str(bin_dir / "tomenotas-hotkey-critical-read"), "<Super>k",
+            ),
         }
 
     def _out(self, *args: str) -> str:

@@ -24,6 +24,31 @@ def test_defaults_derive_from_base_dir(tmp_path, monkeypatch):
     assert cfg.language == "pt"
 
 
+def test_alarm_defaults():
+    cfg = Config()
+    assert cfg.alarm_interval == 300  # 5 minutes
+    assert cfg.alarm_sound == Path(
+        "/usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga"
+    )
+
+
+def test_load_reads_alarm_settings(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({
+        "alarm_interval": 60,
+        "alarm_sound": str(tmp_path / "toque.wav"),
+    }))
+    cfg = Config.load(config_file)
+    assert cfg.alarm_interval == 60
+    assert cfg.alarm_sound == tmp_path / "toque.wav"
+
+
+def test_load_tolerates_bad_alarm_interval(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({"alarm_interval": "nada"}))
+    assert Config.load(config_file).alarm_interval == 300
+
+
 def test_mirror_defaults_disabled_with_notes_dir():
     cfg = Config(base_dir=Path("/x/dados"))
     assert cfg.mirror_enabled is False

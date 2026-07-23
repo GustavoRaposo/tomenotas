@@ -31,14 +31,16 @@ class SettingsPage(Gtk.Box):
     """The main window forwards key-press-event to handle_key() while
     this page is visible."""
 
-    def __init__(self, manager, voices, models, store, config, notifier,
-                 window):
+    def __init__(self, manager, voices, models, store, config, alarm,
+                 sound, notifier, window):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8,
                          margin=16)
         self._manager = manager
         self._voices = voices
         self._models = models
         self._store = store
+        self._alarm = alarm
+        self._sound = sound
         self._notifier = notifier
         self._window = window  # parent of the conflict dialogs
         self._capturing = None  # (action_id, button) while capturing
@@ -136,6 +138,68 @@ class SettingsPage(Gtk.Box):
         model_hint.set_line_wrap(True)
         model_hint.set_xalign(0)
         self.pack_start(model_hint, False, False, 0)
+
+        # ---------------- Section: Notas críticas ----------------
+
+        self.pack_start(self._section_label("Notas críticas"),
+                        False, False, 8)
+
+        interval_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                               spacing=12)
+        interval_row.pack_start(
+            Gtk.Label(label="Notificar a cada", xalign=0), False, False, 0)
+        self._interval_combo = Gtk.ComboBoxText()
+        self._interval_combo.set_hexpand(True)
+        for seconds, label in [("60", "1 minuto"), ("300", "5 minutos"),
+                               ("900", "15 minutos"), ("1800", "30 minutos"),
+                               ("3600", "1 hora")]:
+            self._interval_combo.append(seconds, label)
+        if not self._interval_combo.set_active_id(
+                str(config.alarm_interval)):
+            self._interval_combo.set_active_id("300")
+        # connect AFTER set_active_id: the initial value is not a change
+        self._interval_combo.connect("changed",
+                                     self._on_alarm_interval_changed)
+        interval_row.pack_start(self._interval_combo, True, True, 0)
+        self.pack_start(interval_row, False, False, 0)
+
+        sound_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                            spacing=12)
+        sound_row.pack_start(
+            Gtk.Label(label="Toque da notificação", xalign=0),
+            False, False, 0)
+        self._sound_button = Gtk.FileChooserButton(
+            title="Toque da notificação",
+            action=Gtk.FileChooserAction.OPEN,
+        )
+        audio_filter = Gtk.FileFilter()
+        audio_filter.set_name("Áudio (.oga, .ogg, .wav)")
+        for pattern in ("*.oga", "*.ogg", "*.wav"):
+            audio_filter.add_pattern(pattern)
+        self._sound_button.add_filter(audio_filter)
+        self._sound_button.set_hexpand(True)
+        self._sound_button.set_filename(str(config.alarm_sound))
+        self._sound_button.connect("file-set", self._on_alarm_sound_set)
+        sound_row.pack_start(self._sound_button, True, True, 0)
+
+        preview = Gtk.Button.new_from_icon_name(
+            "media-playback-start-symbolic", Gtk.IconSize.BUTTON
+        )
+        preview.set_tooltip_text("Ouvir o toque")
+        preview.connect("clicked", lambda *_: self._sound.play())
+        sound_row.pack_start(preview, False, False, 0)
+        self.pack_start(sound_row, False, False, 0)
+
+        alarm_hint = Gtk.Label(
+            label="Notas marcadas como críticas (⏰) disparam uma "
+                  "notificação com som nesse intervalo até serem "
+                  "desativadas na tela de notas. Sem críticas ativas, "
+                  "nenhum alarme roda."
+        )
+        alarm_hint.get_style_context().add_class("dim-label")
+        alarm_hint.set_line_wrap(True)
+        alarm_hint.set_xalign(0)
+        self.pack_start(alarm_hint, False, False, 0)
 
         # ---------------- Section: Espelho .txt ----------------
 
@@ -286,6 +350,23 @@ class SettingsPage(Gtk.Box):
             GLib.idle_add(self._on_download_done, self._model_progress,
                           self._model_button, "Modelo baixado",
                           f"Modelo {size} baixado e ativado.")
+
+    # ---------------- Critical notes (alarm) ----------------
+
+    def _on_alarm_interval_changed(self, combo):
+        seconds = int(combo.get_active_id() or 300)
+        self._alarm.set_interval(seconds)
+        update_config_file("alarm_interval", seconds)
+        self._notifier.send("Notas críticas",
+                            f"Notificações a cada {combo.get_active_text()}.")
+
+    def _on_alarm_sound_set(self, button):
+        path = button.get_filename()
+        if not path:
+            return
+        self._sound.set_sound(path)
+        update_config_file("alarm_sound", path)
+        self._sound.play()  # immediate feedback with the chosen ringtone
 
     # ---------------- .txt mirror ----------------
 

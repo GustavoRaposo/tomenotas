@@ -72,10 +72,18 @@ def _v2_filename_column(conn: sqlite3.Connection) -> None:
     conn.execute("ALTER TABLE notes ADD COLUMN filename TEXT")
 
 
+def _v3_critical_column(conn: sqlite3.Connection) -> None:
+    # critical notes: periodic alarm until the user deactivates them
+    conn.execute(
+        "ALTER TABLE notes ADD COLUMN critical INTEGER NOT NULL DEFAULT 0"
+    )
+
+
 MIGRATIONS = [
     Migration(1, "initial schema (notes, tags, note_tags, FTS5)",
               _v1_initial_schema),
     Migration(2, "filename column for the .txt mirror", _v2_filename_column),
+    Migration(3, "critical column for alarm notes", _v3_critical_column),
 ]
 
 SCHEMA_VERSION = MIGRATIONS[-1].version

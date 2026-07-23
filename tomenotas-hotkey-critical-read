@@ -1,0 +1,13 @@
+#!/bin/bash
+# tomenotas-hotkey-critical-read
+# Cliente D-Bus leve — alvo do atalho de ler a última nota crítica ativa
+# (Super+K). Só chama ReadCurrentCritical() no daemon; se o daemon não
+# estiver rodando, a chamada falha em silêncio e nada acontece.
+
+gdbus call --session \
+    --dest com.tomenotas.Daemon \
+    --object-path /com/tomenotas/Daemon \
+    --method com.tomenotas.Daemon.ReadCurrentCritical \
+    > /dev/null 2>&1
+
+exit 0

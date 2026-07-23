@@ -58,9 +58,28 @@ def test_old_database_migrates_preserving_data():
     assert applied == [m.version for m in MIGRATIONS[1:]]
     assert version(conn) == SCHEMA_VERSION
     row = conn.execute(
-        "SELECT text, favorite, filename FROM notes"
+        "SELECT text, favorite, filename, critical FROM notes"
     ).fetchone()
-    assert row == ("nota antiga", 1, None)  # nothing was lost
+    assert row == ("nota antiga", 1, None, 0)  # nothing lost, not critical
+    conn.close()
+
+
+def test_v3_adds_critical_column_preserving_v2_data():
+    conn = sqlite3.connect(":memory:")
+    apply_migrations(conn, migrations=MIGRATIONS[:2])  # up to v2
+    assert version(conn) == 2
+    conn.execute(
+        "INSERT INTO notes (created_at, text, favorite, filename) "
+        "VALUES ('2026-07-22T10:00:00', 'nota v2', 1, 'a.txt')"
+    )
+    conn.commit()
+
+    apply_migrations(conn)
+
+    row = conn.execute(
+        "SELECT text, favorite, filename, critical FROM notes"
+    ).fetchone()
+    assert row == ("nota v2", 1, "a.txt", 0)  # default: not critical
     conn.close()
 
 

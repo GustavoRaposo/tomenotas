@@ -39,6 +39,9 @@ class Config:
     # .txt mirror of the notes: opt-in plain-text export (see notes_db)
     mirror_enabled: bool = False
     mirror_dir: Path | None = None  # None → notes_dir in __post_init__
+    # critical-notes alarm (app/alarm.py)
+    alarm_interval: int = 300  # seconds between notifications
+    alarm_sound: Path | None = None  # None → freedesktop default below
 
     def __post_init__(self):
         if self.whisper_bin is None:
@@ -65,6 +68,11 @@ class Config:
                                self.models_dir / "pt_BR-faber-medium.onnx")
         if self.mirror_dir is None:
             object.__setattr__(self, "mirror_dir", self.notes_dir)
+        if self.alarm_sound is None:
+            object.__setattr__(self, "alarm_sound", Path(
+                "/usr/share/sounds/freedesktop/stereo/"
+                "alarm-clock-elapsed.oga"
+            ))
 
     @property
     def models_dir(self) -> Path:
@@ -136,10 +144,21 @@ class Config:
             or default.language,
             mirror_enabled=bool(data.get("mirror_enabled", False)),
             mirror_dir=path_for("mirror_dir", "TOMENOTAS_MIRROR_DIR", None),
+            alarm_interval=_int_or(data.get("alarm_interval"), 300),
+            alarm_sound=path_for("alarm_sound", "TOMENOTAS_ALARM_SOUND",
+                                 None),
         )
 
 
-def update_config_file(key: str, value: str | bool,
+def _int_or(raw, default: int) -> int:
+    try:
+        value = int(raw)
+        return value if value > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def update_config_file(key: str, value: str | bool | int,
                        path: Path | None = None) -> None:
     """Sets a single key in config.json, preserving the other keys
     (creating the file if needed). Invalid content is rewritten with a

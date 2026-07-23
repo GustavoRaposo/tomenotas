@@ -20,6 +20,7 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 from gi.repository import AyatanaAppIndicator3 as AppIndicator  # noqa: E402
 
 from .. import __version__  # noqa: E402
+from ..app.alarm import CriticalAlarm  # noqa: E402
 from ..app.core import DaemonCore  # noqa: E402
 from ..domain import state as status  # noqa: E402
 from ..domain.errors import MigrationError  # noqa: E402
@@ -31,6 +32,7 @@ from ..infra.notify import Notifier  # noqa: E402
 from ..infra.player import Player  # noqa: E402
 from ..infra.recorder import Recorder  # noqa: E402
 from ..infra.shortcuts import ShortcutManager  # noqa: E402
+from ..infra.sound import AlarmSound  # noqa: E402
 from ..infra.downloads import Downloader, ModelManager  # noqa: E402
 from ..infra.transcriber import Transcriber  # noqa: E402
 from ..infra.voices import VoiceManager  # noqa: E402
@@ -50,7 +52,9 @@ INTROSPECTION_XML = """
 <node>
   <interface name="com.tomenotas.Daemon">
     <method name="ToggleRecording"/>
+    <method name="ToggleCriticalRecording"/>
     <method name="ReadCurrentNote"/>
+    <method name="ReadCurrentCritical"/>
     <method name="ShowWindow"/>
     <method name="ShowSettings"/>
     <method name="Ping">
@@ -65,7 +69,8 @@ class TrayDaemon:
     def __init__(self, core: DaemonCore, config: Config,
                  store: SqliteNoteStore, player: Player, notifier: Notifier,
                  shortcuts: ShortcutManager, voices: VoiceManager,
-                 models: ModelManager):
+                 models: ModelManager, alarm: CriticalAlarm,
+                 sound: AlarmSound):
         self._core = core
         self._config = config
         self._store = store
@@ -74,6 +79,8 @@ class TrayDaemon:
         self._shortcuts = shortcuts
         self._voices = voices
         self._models = models
+        self._alarm = alarm
+        self._sound = sound
         self._window = None  # created on demand at the first "Abrir"
         self._pulser = status.Pulser()
         self._pulsing = False
@@ -161,7 +168,8 @@ class TrayDaemon:
             self._window = NotesWindow(self._store, self._player,
                                        self._notifier, self._shortcuts,
                                        self._voices, self._models,
-                                       self._config)
+                                       self._config, self._alarm,
+                                       self._sound)
         self._window.show_page(page)
 
     def on_settings(self, _item):
@@ -209,10 +217,18 @@ class TrayDaemon:
         if method == "ToggleRecording":
             self._handle_toggle()
             invocation.return_value(None)
+        elif method == "ToggleCriticalRecording":
+            self._handle_toggle(critical=True)
+            invocation.return_value(None)
         elif method == "ReadCurrentNote":
             # TTS synthesis is slow — thread, like the transcription
             threading.Thread(
                 target=self._core.read_current_note, daemon=True
+            ).start()
+            invocation.return_value(None)
+        elif method == "ReadCurrentCritical":
+            threading.Thread(
+                target=self._core.read_current_critical, daemon=True
             ).start()
             invocation.return_value(None)
         elif method == "ShowWindow":
@@ -224,8 +240,8 @@ class TrayDaemon:
         elif method == "Ping":
             invocation.return_value(GLib.Variant("(s)", ("pong",)))
 
-    def _handle_toggle(self):
-        action = self._core.toggle()
+    def _handle_toggle(self, critical=False):
+        action = self._core.toggle(critical=critical)
         if action is ToggleAction.STOP_REQUESTED:
             # Transcription is slow — run it in a thread so the main loop
             # stays responsive (tray and D-Bus keep answering).
@@ -265,6 +281,26 @@ def main():
         notifier=notifier,
         player=player,
     )
+    sound = AlarmSound(config.alarm_sound)
+
+    def schedule_once(seconds, callback):
+        # GLib one-shot: returning False stops the source after firing
+        def once():
+            callback()
+            return False
+        return GLib.timeout_add_seconds(seconds, once)
+
+    alarm = CriticalAlarm(store, notifier, sound,
+                          schedule=schedule_once,
+                          cancel=GLib.source_remove,
+                          interval=config.alarm_interval)
+    # arms the alarm when a critical note is saved (fires from the
+    # transcription thread — hop to the main loop first)
+    core.on_note_saved = (
+        lambda _note: GLib.idle_add(lambda: (alarm.refresh(), False)[1])
+    )
+    # criticals left over from the previous run re-arm on startup
+    alarm.refresh()
     shortcuts = ShortcutManager(config.bin_dir)
     # First run from the .deb (no install.sh): register the default
     # keybindings; no-op when they already exist (never overrides).
@@ -278,7 +314,7 @@ def main():
     models = ModelManager(transcriber, config.whisper_model,
                           config.models_dir, Downloader())
     app = TrayDaemon(core, config, store, player, notifier, shortcuts,
-                     voices, models)
+                     voices, models, alarm, sound)
     # First run (Fase A): models are downloaded by the app, not by
     # install.sh — open Configurações so the user can fetch them.
     if not transcriber.is_ready() or not voices.list_voices():

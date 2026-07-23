@@ -21,6 +21,7 @@ class DbNote:
     favorite: bool
     tags: tuple
     filename: str | None
+    critical: bool = False  # active critical note (periodic alarm)
 
     @property
     def title(self) -> str:

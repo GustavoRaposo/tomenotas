@@ -180,6 +180,82 @@ def test_finish_with_error_notifies_and_returns_to_idle(tmp_path):
     assert core.state is State.IDLE
 
 
+def test_toggle_critical_saves_a_critical_note(tmp_path):
+    core, recorder, _, notes, notifier = make_core(tmp_path,
+                                                   text="urgente!")
+    recorder.audio_tmp.write_bytes(b"RIFF")
+    core.toggle(critical=True)
+    core.toggle()  # stopping with the normal hotkey keeps the mode
+    core.finish_recording()
+
+    (note,) = notes.list()
+    assert note.critical is True
+    assert notifier.messages[-1] == ("Nota crítica criada", "urgente!")
+
+
+def test_toggle_normal_stays_normal_even_after_a_critical_one(tmp_path):
+    core, recorder, _, notes, _ = make_core(tmp_path)
+    recorder.audio_tmp.write_bytes(b"RIFF")
+    core.toggle(critical=True)
+    core.toggle()
+    core.finish_recording()
+
+    recorder.audio_tmp.write_bytes(b"RIFF")
+    core.toggle()  # new recording, normal mode
+    core.toggle()
+    core.finish_recording()
+
+    latest = notes.list()[0]
+    assert latest.critical is False
+
+
+def test_note_saved_observer_fires_with_the_note(tmp_path):
+    core, recorder, _, _, _ = make_core(tmp_path, text="observada")
+    saved = []
+    core.on_note_saved = saved.append
+    recorder.audio_tmp.write_bytes(b"RIFF")
+    core.toggle(critical=True)
+    core.toggle()
+    core.finish_recording()
+    assert [n.text for n in saved] == ["observada"]
+    assert saved[0].critical is True
+
+
+def test_read_current_critical_plays_the_latest_active(tmp_path):
+    moments = iter([datetime(2026, 7, 22, 10, 0, 0),
+                    datetime(2026, 7, 22, 11, 0, 0)])
+    core, _, _, notes, _ = make_core(tmp_path)
+    notes._now = lambda: next(moments)
+    notes.save("crítica antiga", critical=True)
+    notes.save("crítica nova", critical=True)
+
+    core.read_current_critical()
+
+    assert core._player.played == ["crítica nova"]
+
+
+def test_read_current_critical_without_active_ones_warns(tmp_path):
+    core, _, _, notes, notifier = make_core(tmp_path)
+    notes.save("normal")  # not critical
+    core.read_current_critical()
+    assert notifier.messages == [
+        ("Notas críticas", "Nenhuma nota crítica ativa.")
+    ]
+
+
+def test_read_current_critical_with_player_error_notifies(tmp_path):
+    from tomenotas.domain.errors import PlayerError
+
+    core, _, _, notes, notifier = make_core(
+        tmp_path, player_error=PlayerError("Voz do Piper não encontrada: /x")
+    )
+    notes.save("urgente", critical=True)
+    core.read_current_critical()
+    assert notifier.messages == [
+        ("Erro", "Voz do Piper não encontrada: /x")
+    ]
+
+
 def test_shutdown_aborts_recording(tmp_path):
     core, recorder, _, _, _ = make_core(tmp_path)
     core.toggle()

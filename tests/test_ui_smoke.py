@@ -30,6 +30,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def window(tmp_path):
+    from tomenotas.app.alarm import CriticalAlarm
     from tomenotas.infra.config import Config
     from tomenotas.infra.downloads import Downloader, ModelManager
     from tomenotas.infra.notes_db import SqliteNoteStore
@@ -40,14 +41,21 @@ def window(tmp_path):
     from tomenotas.infra.voices import VoiceManager
     from tomenotas.ui.window import NotesWindow
 
+    from tomenotas.infra.sound import AlarmSound
+
     store = SqliteNoteStore(tmp_path / "notes.db", tmp_path / "notes")
     store.save("nota de teste para o detalhe")
     player = Player(Path("/x/piper"), Path("/x/voz.onnx"), tmp_path / "t.wav")
     transcriber = Transcriber(Path("/x/whisper"), Path("/x/ggml-medium.bin"))
+    notifier = Notifier(spawn=lambda cmd, **kw: None)  # no real notifications
+    sound = AlarmSound(Path("/x/toque.oga"), spawn=lambda cmd: None)
+    alarm = CriticalAlarm(store, notifier, sound,
+                          schedule=lambda s, cb: 1, cancel=lambda h: None,
+                          interval=300)
     window = NotesWindow(
         store,
         player,
-        Notifier(spawn=lambda cmd, **kw: None),  # no real notifications
+        notifier,
         ShortcutManager(Path.home() / "tomenotas"),
         VoiceManager(player, Path("/x/voz.onnx"),
                      config_path=tmp_path / "config.json"),
@@ -55,6 +63,8 @@ def window(tmp_path):
                      tmp_path / "models", Downloader(),
                      config_path=tmp_path / "config.json"),
         Config(base_dir=tmp_path / "dados"),
+        alarm,
+        sound,
     )
     window.refresh()
     # makes the stack children "visible" without mapping the window

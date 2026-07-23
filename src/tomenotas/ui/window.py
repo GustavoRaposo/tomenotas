@@ -33,11 +33,12 @@ PERIODS = [
 
 class NotesWindow(Gtk.Window):
     def __init__(self, store, player, notifier, shortcuts, voices, models,
-                 config):
+                 config, alarm, sound):
         super().__init__(title="Tomenotas")
         self._store = store
         self._player = player
         self._notifier = notifier
+        self._alarm = alarm
         self._playing_button = None  # button of the note playing now
         self._active_tag = ""  # tag selected in the dropdown ("" = all)
         self._favorites_only = False
@@ -68,7 +69,8 @@ class NotesWindow(Gtk.Window):
         self._stack.add_titled(self._build_notes_page(), "notas", "Notas")
         self._stack.add_titled(self._build_tags_page(), "tags", "Tags")
         self._settings = SettingsPage(shortcuts, voices, models, store,
-                                      config, notifier, self)
+                                      config, alarm, sound, notifier,
+                                      self)
         self._stack.add_titled(self._settings, "config", "Configurações")
         self._stack.connect("notify::visible-child", self._on_page_switch)
 
@@ -92,6 +94,7 @@ class NotesWindow(Gtk.Window):
         self._reload_list()
         self._reload_tags()
         self._settings.refresh()
+        self._alarm.refresh()  # deletes/edits may change the criticals
 
     def _on_page_switch(self, *_args):
         name = self._stack.get_visible_child_name()
@@ -205,6 +208,12 @@ class NotesWindow(Gtk.Window):
         )
         bar.pack_start(self._detail_star, False, False, 0)
 
+        self._detail_critical = Gtk.ToggleButton()
+        self._critical_handler_id = self._detail_critical.connect(
+            "toggled", self._on_detail_critical
+        )
+        bar.pack_start(self._detail_critical, False, False, 0)
+
         self._detail_tags = Gtk.MenuButton(label="🏷")
         self._detail_tags.set_tooltip_text("Tags desta nota")
         bar.pack_start(self._detail_tags, False, False, 0)
@@ -255,7 +264,12 @@ class NotesWindow(Gtk.Window):
         self._detail_star.set_active(note.favorite)
         self._detail_star.handler_unblock(self._star_handler_id)
         self._paint_star(self._detail_star, note.favorite)
+        self._detail_critical.handler_block(self._critical_handler_id)
+        self._detail_critical.set_active(note.critical)
+        self._detail_critical.handler_unblock(self._critical_handler_id)
+        self._paint_critical(self._detail_critical, note.critical)
         self._detail_star.set_sensitive(True)
+        self._detail_critical.set_sensitive(True)
         self._detail_tags.set_sensitive(True)
         self._detail_delete.set_sensitive(True)
         self._detail_tags.set_popover(
@@ -274,9 +288,14 @@ class NotesWindow(Gtk.Window):
         self._detail_star.set_active(False)
         self._detail_star.handler_unblock(self._star_handler_id)
         self._paint_star(self._detail_star, False)
-        # favorite/delete only make sense after the note exists; tags can
-        # be picked now and are applied right after Salvar
+        self._detail_critical.handler_block(self._critical_handler_id)
+        self._detail_critical.set_active(False)
+        self._detail_critical.handler_unblock(self._critical_handler_id)
+        self._paint_critical(self._detail_critical, False)
+        # favorite/critical/delete only make sense after the note exists;
+        # tags can be picked now and are applied right after Salvar
         self._detail_star.set_sensitive(False)
+        self._detail_critical.set_sensitive(False)
         self._detail_delete.set_sensitive(False)
         self._pending_tags = set()
         self._detail_tags.set_sensitive(True)
@@ -321,6 +340,13 @@ class NotesWindow(Gtk.Window):
             return
         self._store.set_favorite(self._current_note.id, button.get_active())
         self._paint_star(button, button.get_active())
+
+    def _on_detail_critical(self, button):
+        if self._current_note is None:
+            return
+        self._store.set_critical(self._current_note.id, button.get_active())
+        self._paint_critical(button, button.get_active())
+        self._alarm.refresh()
 
     def _on_detail_play(self, button):
         self._stop_playback()
@@ -437,6 +463,12 @@ class NotesWindow(Gtk.Window):
         star.connect("toggled", self._on_favorite, note)
         hbox.pack_start(star, False, False, 0)
 
+        critical = Gtk.ToggleButton()
+        critical.set_active(note.critical)  # before connect
+        self._paint_critical(critical, note.critical)
+        critical.connect("toggled", self._on_critical, note)
+        hbox.pack_start(critical, False, False, 0)
+
         tags_button = Gtk.MenuButton(label="🏷")
         tags_button.set_tooltip_text("Tags desta nota")
         tags_button.set_popover(self._build_tags_popover(note, tags_button))
@@ -476,6 +508,23 @@ class NotesWindow(Gtk.Window):
             # the note may have left the current filter — reload outside
             # the handler (the clicked button is destroyed by the reload)
             GLib.idle_add(self._reload_list)
+
+    # ---------------- Critical notes (alarm) ----------------
+
+    def _paint_critical(self, button, critical):
+        name = "alarm-symbolic" if critical else "appointment-new-symbolic"
+        button.set_image(Gtk.Image.new_from_icon_name(name,
+                                                      Gtk.IconSize.BUTTON))
+        button.set_tooltip_text(
+            "Crítica com alarme ativo — clique para tornar normal"
+            if critical else "Tornar crítica (alarme periódico)"
+        )
+
+    def _on_critical(self, button, note):
+        active = button.get_active()
+        self._store.set_critical(note.id, active)
+        self._paint_critical(button, active)
+        self._alarm.refresh()  # arms/disarms right away
 
     # ---------------- Per-note tags (popover) ----------------
 

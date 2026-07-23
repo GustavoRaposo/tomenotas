@@ -230,6 +230,45 @@ def test_update_text_of_missing_note_is_ignored(tmp_path):
     assert store.update_text(999, "novo") is None
 
 
+# ---------------- critical notes (alarm) ----------------
+
+def test_save_critical_marks_the_note(tmp_path):
+    store = make(tmp_path, mirror=False)
+    normal = store.save("nota comum")
+    critical = store.save("urgente", critical=True)
+    assert normal.critical is False
+    assert critical.critical is True
+
+
+def test_set_critical_toggles(tmp_path):
+    store = make(tmp_path, mirror=False)
+    note = store.save("vira crítica")
+    store.set_critical(note.id, True)
+    assert store.list()[0].critical
+    store.set_critical(note.id, False)
+    assert not store.list()[0].critical
+
+
+def test_active_criticals_lists_only_active_most_recent_first(tmp_path):
+    moments = iter([
+        datetime(2026, 7, 20, 10, 0, 0),
+        datetime(2026, 7, 21, 10, 0, 0),
+        datetime(2026, 7, 22, 10, 0, 0),
+    ])
+    store = make(tmp_path, mirror=False, now=lambda: next(moments))
+    store.save("normal")
+    old = store.save("crítica antiga", critical=True)
+    new = store.save("crítica nova", critical=True)
+
+    assert [n.id for n in store.active_criticals()] == [new.id, old.id]
+
+    store.set_critical(new.id, False)  # deactivated: leaves the alarm
+    assert [n.id for n in store.active_criticals()] == [old.id]
+
+    store.delete(store.list()[1])  # delete the remaining critical
+    assert store.active_criticals() == []
+
+
 # ---------------- favorites ----------------
 
 def test_favorite_and_unfavorite(tmp_path):
