@@ -55,7 +55,7 @@ demais dependências vêm do apt do próprio Ubuntu, declaradas no pacote.
 
 A instalação é via pacote `.deb` — um único caminho, sem compilar nada na
 sua máquina. Baixe o `.deb` mais recente na
-[página de releases](https://github.com/GustavoRaposo/take-a-note/releases)
+[página de releases](https://github.com/GustavoRaposo/tomenotas/releases)
 e instale:
 
 ```bash
