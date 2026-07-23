@@ -31,6 +31,10 @@ class Player:
     def is_playing(self) -> bool:
         return self._proc is not None and self._proc.poll() is None
 
+    def set_model(self, piper_model: Path) -> None:
+        """Switches the Piper voice; takes effect on the next play()."""
+        self._piper_model = piper_model
+
     def play(self, text: str) -> None:
         """Synthesizes the text and starts playback (stopping any
         previous one). Raises PlayerError with a user-ready message."""

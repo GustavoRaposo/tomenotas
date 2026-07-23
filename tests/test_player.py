@@ -124,6 +124,18 @@ def test_play_during_playback_stops_the_previous_one(tmp_path):
     assert len(spawns) == 2
 
 
+def test_set_model_switches_the_voice_used_by_play(tmp_path):
+    player, runs, _, _, _ = make_player(tmp_path)
+    other_voice = tmp_path / "outra-voz.onnx"
+    other_voice.write_bytes(b"onnx")
+
+    player.set_model(other_voice)
+    player.play("texto")
+
+    (cmd, _) = runs[0]
+    assert cmd[cmd.index("--model") + 1] == str(other_voice)
+
+
 def test_is_playing_reflects_end_of_playback(tmp_path):
     player, _, _, paplay, _ = make_player(tmp_path)
     player.play("texto")

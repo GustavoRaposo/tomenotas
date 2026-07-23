@@ -3,7 +3,7 @@
 - Notas: list with FTS search, tag dropdown, favorites, period, play,
   favorite, tag and delete.
 - Tags: tag CRUD (create, list with counts, rename, delete).
-- Configurações: keyboard shortcuts (SettingsPage).
+- Configurações: keyboard shortcuts and Piper voice (SettingsPage).
 
 Glue layer like daemon.py: only widgets and delegation to the (tested)
 SqliteNoteStore / Player / ShortcutManager. Stays outside the coverage
@@ -32,7 +32,7 @@ PERIODS = [
 
 
 class NotesWindow(Gtk.Window):
-    def __init__(self, store, player, notifier, shortcuts):
+    def __init__(self, store, player, notifier, shortcuts, voices):
         super().__init__(title="Tomenotas")
         self._store = store
         self._player = player
@@ -66,7 +66,7 @@ class NotesWindow(Gtk.Window):
 
         self._stack.add_titled(self._build_notes_page(), "notas", "Notas")
         self._stack.add_titled(self._build_tags_page(), "tags", "Tags")
-        self._settings = SettingsPage(shortcuts, notifier, self)
+        self._settings = SettingsPage(shortcuts, voices, notifier, self)
         self._stack.add_titled(self._settings, "config", "Configurações")
         self._stack.connect("notify::visible-child", self._on_page_switch)
 

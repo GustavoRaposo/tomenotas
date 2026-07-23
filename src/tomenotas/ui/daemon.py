@@ -32,6 +32,7 @@ from ..infra.player import Player  # noqa: E402
 from ..infra.recorder import Recorder  # noqa: E402
 from ..infra.shortcuts import ShortcutManager  # noqa: E402
 from ..infra.transcriber import Transcriber  # noqa: E402
+from ..infra.voices import VoiceManager  # noqa: E402
 from .window import NotesWindow  # noqa: E402
 
 BUS_NAME = "com.tomenotas.Daemon"
@@ -62,13 +63,14 @@ INTROSPECTION_XML = """
 class TrayDaemon:
     def __init__(self, core: DaemonCore, config: Config,
                  store: SqliteNoteStore, player: Player, notifier: Notifier,
-                 shortcuts: ShortcutManager):
+                 shortcuts: ShortcutManager, voices: VoiceManager):
         self._core = core
         self._config = config
         self._store = store
         self._player = player
         self._notifier = notifier
         self._shortcuts = shortcuts
+        self._voices = voices
         self._window = None  # created on demand at the first "Abrir"
         self._pulser = status.Pulser()
         self._pulsing = False
@@ -154,7 +156,8 @@ class TrayDaemon:
     def show_window(self, page=None):
         if self._window is None:
             self._window = NotesWindow(self._store, self._player,
-                                       self._notifier, self._shortcuts)
+                                       self._notifier, self._shortcuts,
+                                       self._voices)
         self._window.show_page(page)
 
     def on_settings(self, _item):
@@ -257,7 +260,9 @@ def main():
         player=player,
     )
     shortcuts = ShortcutManager(config.bin_dir)
-    app = TrayDaemon(core, config, store, player, notifier, shortcuts)
+    voices = VoiceManager(player, config.piper_model)
+    app = TrayDaemon(core, config, store, player, notifier, shortcuts,
+                     voices)
     # Ctrl+C in the terminal exits cleanly (useful when run by hand)
     signal.signal(signal.SIGINT, lambda *_: app.quit())
     Gtk.main()

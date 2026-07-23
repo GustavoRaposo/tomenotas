@@ -34,15 +34,19 @@ def window(tmp_path):
     from tomenotas.infra.notify import Notifier
     from tomenotas.infra.player import Player
     from tomenotas.infra.shortcuts import ShortcutManager
+    from tomenotas.infra.voices import VoiceManager
     from tomenotas.ui.window import NotesWindow
 
     store = SqliteNoteStore(tmp_path / "notes.db", tmp_path / "notes")
     store.save("nota de teste para o detalhe")
+    player = Player(Path("/x/piper"), Path("/x/voz.onnx"), tmp_path / "t.wav")
     window = NotesWindow(
         store,
-        Player(Path("/x/piper"), Path("/x/voz.onnx"), tmp_path / "t.wav"),
+        player,
         Notifier(spawn=lambda cmd, **kw: None),  # no real notifications
         ShortcutManager(Path.home() / "bin"),
+        VoiceManager(player, Path("/x/voz.onnx"),
+                     config_path=tmp_path / "config.json"),
     )
     window.refresh()
     # makes the stack children "visible" without mapping the window

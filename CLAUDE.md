@@ -51,6 +51,9 @@ clients that die silently when it isn't running:
     `transcriber.py` (whisper.cpp), `player.py` (Piper + paplay),
     `notify.py` (notify-send, `--app-name=Tomenotas`, click action),
     `shortcuts.py` (gsettings keybindings + conflict detection),
+    `voices.py` (`VoiceManager` — lists installed Piper `.onnx` voices and
+    switches the active one: applies to the Player and persists
+    `piper_model` in config.json),
     `config.py` (`~/.config/tomenotas/config.json` + `TOMENOTAS_*` env),
     `logs.py` (rotating `daemon.log`), and `notes_db.py` +
     `migrations.py` — SQLite storage, the source of truth
@@ -77,7 +80,8 @@ clients that die silently when it isn't running:
     `store.update_text`, star/tags/play/delete actions, Salvar returns
     to the list), Tags (CRUD with merge warning) and Configurações
     (`SettingsPage`, embedded — the window forwards key-press-event to
-    its `handle_key`). Window close hides —
+    its `handle_key`; two sections: Atalhos, and Voz with the Piper
+    voice dropdown backed by `VoiceManager`). Window close hides —
     the daemon stays in the tray. Deliberately thin and dumb: only builds
     widgets and delegates to the tested core. The whole layer is
     **excluded from coverage** (pyproject omit) — keep new behavior out
