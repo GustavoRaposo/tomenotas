@@ -62,10 +62,13 @@ sua máquina. Baixe o `.deb` mais recente na
 e instale:
 
 ```bash
-sudo apt install ./tomenotas_1.1.0_amd64.deb
+sudo apt install ./tomenotas_1.3.0_amd64.deb
 ```
 
-O `apt` resolve as dependências declaradas no pacote. Na primeira vez que
+O `apt` resolve as dependências declaradas no pacote. (Ele pode exibir
+uma nota sobre o usuário `_apt` não conseguir acessar o arquivo — é
+inofensiva e acontece com qualquer `.deb` instalado a partir da pasta
+pessoal.) Na primeira vez que
 você abrir o app (menu de aplicativos → **Tomenotas**):
 
 1. O daemon **registra sozinho os atalhos de teclado** no GNOME:
@@ -84,7 +87,7 @@ Se você clonou o repositório em vez de baixar um `.deb` pronto:
 
 ```bash
 ./packaging/build-deb.sh    # requer git, cmake, build-essential e wget
-sudo apt install ./dist/tomenotas_1.1.0_amd64.deb
+sudo apt install ./dist/tomenotas_1.3.0_amd64.deb
 ```
 
 O script compila um `whisper-cli` estático (whisper.cpp v1.9.1, sem
