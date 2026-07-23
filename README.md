@@ -65,7 +65,7 @@ sua máquina. Baixe o `.deb` mais recente na
 e instale:
 
 ```bash
-sudo apt install ./tomenotas_1.4.0_amd64.deb
+sudo apt install ./tomenotas_1.5.0_amd64.deb
 ```
 
 O `apt` resolve as dependências declaradas no pacote. (Ele pode exibir
@@ -91,7 +91,7 @@ Se você clonou o repositório em vez de baixar um `.deb` pronto:
 
 ```bash
 ./packaging/build-deb.sh    # requer git, cmake, build-essential e wget
-sudo apt install ./dist/tomenotas_1.4.0_amd64.deb
+sudo apt install ./dist/tomenotas_1.5.0_amd64.deb
 ```
 
 O script compila um `whisper-cli` estático (whisper.cpp v1.9.1, sem
