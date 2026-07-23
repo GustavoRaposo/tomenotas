@@ -18,6 +18,8 @@ CONFIG_PATH = Path("~/.config/tomenotas/config.json").expanduser()
 class Config:
     whisper_bin: Path = Path.home() / "whisper.cpp/build/bin/whisper-cli"
     whisper_model: Path = Path.home() / "whisper.cpp/models/ggml-medium.bin"
+    piper_bin: Path = Path.home() / "piper/piper"
+    piper_model: Path = Path.home() / "piper/pt_BR-faber-medium.onnx"
     base_dir: Path = Path.home() / ".local/share/tomenotas"
     language: str = "pt"
 
@@ -28,6 +30,10 @@ class Config:
     @property
     def audio_tmp(self) -> Path:
         return self.base_dir / "tmp_recording.wav"
+
+    @property
+    def tts_tmp(self) -> Path:
+        return self.base_dir / "tmp_tts.wav"
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Config":
@@ -60,6 +66,10 @@ class Config:
             ),
             whisper_model=caminho(
                 "whisper_model", "TOMENOTAS_WHISPER_MODEL", padrao.whisper_model
+            ),
+            piper_bin=caminho("piper_bin", "TOMENOTAS_PIPER_BIN", padrao.piper_bin),
+            piper_model=caminho(
+                "piper_model", "TOMENOTAS_PIPER_MODEL", padrao.piper_model
             ),
             base_dir=caminho("base_dir", "TOMENOTAS_BASE_DIR", padrao.base_dir),
             language=os.environ.get("TOMENOTAS_LANGUAGE")

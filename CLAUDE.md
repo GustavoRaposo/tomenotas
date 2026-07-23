@@ -27,20 +27,25 @@ still standalone scripts communicating through shared files under
   - `core.py` — the state machine (idle → recording → transcribing), fully
     synchronous, no GTK/D-Bus/threads. `toggle()` returns a `ToggleAction`
     telling the glue what to do next.
-  - `recorder.py` / `transcriber.py` / `notes.py` / `notify.py` — thin
-    injectable wrappers around `arecord`, whisper.cpp, note files, and
-    `notify-send`. Error messages for the user are raised as
-    `TranscriptionError` / handled in core.
+  - `recorder.py` / `transcriber.py` / `notes.py` / `notify.py` /
+    `player.py` — thin injectable wrappers around `arecord`, whisper.cpp,
+    note files (list/save/delete/search via `Note.matches`), `notify-send`,
+    and Piper+`paplay` playback. User-facing error messages are raised as
+    `TranscriptionError` / `PlayerError`.
   - `config.py` — reads `~/.config/tomenotas/config.json` (written by
-    `install.sh`) with `TOMENOTAS_*` env overrides. This replaced the old
-    sed-patching for the daemon.
-  - `daemon.py` — the **glue layer** (GTK main loop, `AyatanaAppIndicator3`
-    tray with "Abrir"/"Sair", D-Bus name `com.tomenotas.Daemon` at
-    `/com/tomenotas/Daemon` with `ToggleRecording()`/`Ping()`, threading for
-    the slow transcription). Deliberately thin and dumb: it only builds
-    components and delegates to the tested core. It is **excluded from
-    coverage** (pyproject omit) — keep new behavior out of it and in the
-    core. Recording state lives in-process — no `recording.pid`.
+    `install.sh`; whisper + piper paths) with `TOMENOTAS_*` env overrides.
+    This replaced the old sed-patching for the daemon.
+  - `daemon.py` + `window.py` — the **glue layer**: GTK main loop,
+    `AyatanaAppIndicator3` tray with "Abrir"/"Sair", D-Bus name
+    `com.tomenotas.Daemon` at `/com/tomenotas/Daemon` with
+    `ToggleRecording()`/`ShowWindow()`/`Ping()`, threading for slow work
+    (transcription, TTS synthesis), and the Fase 2 notes window (list with
+    preview, search filter, play/pause per note, delete with confirmation;
+    closing hides — the daemon stays in the tray). Deliberately thin and
+    dumb: they only build widgets and delegate to the tested core. Both are
+    **excluded from coverage** (pyproject omit) — keep new behavior out of
+    them and in the core. Recording state lives in-process — no
+    `recording.pid`.
   Entry point: `tomenotas-daemon = tomenotas.daemon:main` (console script;
   `install.sh` installs the package into a `--system-site-packages` venv at
   `~/.local/share/tomenotas/venv` and symlinks `~/bin/tomenotas-daemon`).
@@ -121,8 +126,8 @@ copies have placeholder paths.
 
 ## Roadmap context
 
-See `ROADMAP.md` for the v2 plan. Fase 0 (bash scripts) and Fase 1 (daemon
-skeleton: tray icon, D-Bus service, recording migrated into the daemon) are done.
-Next up is Fase 2 (GTK window for listing/playing notes) — the notes UI, hotkey
-configuration UI (Fase 3), and state-reflecting tray icons (Fase 4) don't exist
-yet.
+See `ROADMAP.md` for the v2 plan. Fase 0 (bash scripts), Fase 1 (daemon
+skeleton: tray icon, D-Bus service, recording migrated into the daemon) and
+Fase 2 (GTK notes window: list/search/play/delete) are done. Next up is Fase 3
+(hotkey configuration UI) — that and the state-reflecting tray icons (Fase 4)
+don't exist yet.

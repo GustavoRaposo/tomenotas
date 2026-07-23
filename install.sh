@@ -67,6 +67,13 @@ python3 -m venv --system-site-packages "$VENV_DIR"
 "$VENV_DIR/bin/pip" install -q "$SCRIPT_DIR"
 ln -sf "$VENV_DIR/bin/tomenotas-daemon" "$BIN_DIR/tomenotas-daemon"
 
+# Caminhos padrão (as seções abaixo refinam quando instalam de verdade);
+# no fim, tudo vai para ~/.config/tomenotas/config.json, lido pelo daemon.
+WHISPER_BIN_PATH="$WHISPER_DIR/build/bin/whisper-cli"
+MODEL_FILE="$WHISPER_DIR/models/ggml-$MODEL_SIZE.bin"
+PIPER_BIN_PATH="$PIPER_DIR/piper"
+VOICE_MODEL="$PIPER_DIR/pt_BR-faber-medium.onnx"
+
 if [ "$SKIP_WHISPER" -eq 0 ]; then
     if [ -d "$WHISPER_DIR" ]; then
         echo "==> whisper.cpp já existe em $WHISPER_DIR, pulando clone/build."
@@ -98,17 +105,6 @@ if [ "$SKIP_WHISPER" -eq 0 ]; then
     echo "==> Ajustando caminhos do whisper.cpp em gravar.sh..."
     sed -i "s|^WHISPER_BIN=.*|WHISPER_BIN=\"$WHISPER_BIN_PATH\"|" "$BIN_DIR/gravar.sh"
     sed -i "s|^WHISPER_MODEL=.*|WHISPER_MODEL=\"$MODEL_FILE\"|" "$BIN_DIR/gravar.sh"
-
-    # O daemon lê os caminhos de ~/.config/tomenotas/config.json (nada de sed)
-    echo "==> Gravando caminhos do whisper.cpp em ~/.config/tomenotas/config.json..."
-    CONFIG_DIR="$HOME/.config/tomenotas"
-    mkdir -p "$CONFIG_DIR"
-    cat > "$CONFIG_DIR/config.json" <<EOF
-{
-    "whisper_bin": "$WHISPER_BIN_PATH",
-    "whisper_model": "$MODEL_FILE"
-}
-EOF
 else
     echo "==> Pulando instalação do whisper.cpp (--skip-whisper). Ajuste WHISPER_BIN em $BIN_DIR/gravar.sh e os caminhos em ~/.config/tomenotas/config.json"
 fi
@@ -142,6 +138,19 @@ if [ "$SKIP_PIPER" -eq 0 ]; then
 else
     echo "==> Pulando instalação do Piper (--skip-piper). Ajuste PIPER_BIN e PIPER_MODEL manualmente em $BIN_DIR/ler.sh"
 fi
+
+# O daemon lê os caminhos de ~/.config/tomenotas/config.json (nada de sed)
+echo "==> Gravando caminhos em ~/.config/tomenotas/config.json..."
+CONFIG_DIR="$HOME/.config/tomenotas"
+mkdir -p "$CONFIG_DIR"
+cat > "$CONFIG_DIR/config.json" <<EOF
+{
+    "whisper_bin": "$WHISPER_BIN_PATH",
+    "whisper_model": "$MODEL_FILE",
+    "piper_bin": "$PIPER_BIN_PATH",
+    "piper_model": "$VOICE_MODEL"
+}
+EOF
 
 if [ "$SKIP_SHORTCUTS" -eq 0 ]; then
     echo "==> Configurando atalhos de teclado no GNOME..."

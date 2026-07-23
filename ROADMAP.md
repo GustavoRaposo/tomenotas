@@ -67,18 +67,18 @@ bandeja, ainda sem UI de notas.
 daemon aberto; fechando o daemon pelo menu da bandeja, o atalho não faz
 nada (a chamada D-Bus falha silenciosamente).
 
-## Fase 2 — UI de notas (listar + tocar)
+## Fase 2 — UI de notas (listar + tocar) (concluído)
 
-- [ ] Janela GTK principal, aberta a partir do menu da bandeja ou ao clicar
+- [x] Janela GTK principal, aberta a partir do menu da bandeja ou ao clicar
       no ícone
-- [ ] Lista de notas (mais recente primeiro), com prévia do texto
-- [ ] Botão "Play" por nota (ou nota selecionada) que chama o Piper e toca
+- [x] Lista de notas (mais recente primeiro), com prévia do texto
+- [x] Botão "Play" por nota (ou nota selecionada) que chama o Piper e toca
       o áudio
-- [ ] Indicador visual de "tocando agora" (ex: ícone de play muda pra pause
+- [x] Indicador visual de "tocando agora" (ex: ícone de play muda pra pause
       durante a reprodução)
-- [ ] Botão para apagar nota direto na UI (substitui os comandos manuais
+- [x] Botão para apagar nota direto na UI (substitui os comandos manuais
       de `rm`)
-- [ ] Busca/filtro simples por texto na lista de notas
+- [x] Busca/filtro simples por texto na lista de notas
 
 **Critério de pronto:** dá pra abrir a janela, ver todas as notas, tocar
 qualquer uma com um clique, e apagar sem terminal.

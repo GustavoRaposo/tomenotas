@@ -81,8 +81,10 @@ O instalador:
 1. **Super+R** → fala → **Super+R** de novo → uma notificação confirma a nota
    criada. O atalho só funciona enquanto o daemon estiver rodando — feche
    pelo menu da bandeja ("Sair") para desativá-lo.
-2. **Super+L** → escolhe uma nota na lista.
-3. **Super+T** → ouve a nota selecionada.
+2. Menu da bandeja → **Abrir** → janela com todas as notas: busca por texto,
+   botão ▶ para ouvir cada nota (vira ⏸ enquanto toca) e 🗑 para apagar.
+3. **Super+L** → escolhe uma nota na lista (fluxo alternativo via zenity).
+4. **Super+T** → ouve a nota selecionada.
 
 Se algum atalho já estiver em uso por outro programa, ajuste em
 **Configurações → Teclado → Atalhos personalizados**.

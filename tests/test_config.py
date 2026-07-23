@@ -10,7 +10,14 @@ def test_padroes_derivam_de_base_dir():
     cfg = Config(base_dir=Path("/x/dados"))
     assert cfg.notes_dir == Path("/x/dados/notes")
     assert cfg.audio_tmp == Path("/x/dados/tmp_recording.wav")
+    assert cfg.tts_tmp == Path("/x/dados/tmp_tts.wav")
     assert cfg.language == "pt"
+
+
+def test_padroes_do_piper():
+    cfg = Config()
+    assert cfg.piper_bin == Path.home() / "piper/piper"
+    assert cfg.piper_model == Path.home() / "piper/pt_BR-faber-medium.onnx"
 
 
 def test_load_sem_arquivo_usa_padroes(tmp_path):
@@ -23,12 +30,16 @@ def test_load_le_caminhos_do_json(tmp_path):
     arquivo.write_text(json.dumps({
         "whisper_bin": "/opt/whisper/main",
         "whisper_model": "/opt/whisper/ggml-small.bin",
+        "piper_bin": "/opt/piper/piper",
+        "piper_model": "/opt/piper/voz.onnx",
         "base_dir": str(tmp_path / "dados"),
         "language": "en",
     }))
     cfg = Config.load(arquivo)
     assert cfg.whisper_bin == Path("/opt/whisper/main")
     assert cfg.whisper_model == Path("/opt/whisper/ggml-small.bin")
+    assert cfg.piper_bin == Path("/opt/piper/piper")
+    assert cfg.piper_model == Path("/opt/piper/voz.onnx")
     assert cfg.base_dir == tmp_path / "dados"
     assert cfg.language == "en"
 
@@ -47,9 +58,11 @@ def test_env_tem_precedencia_sobre_o_json(tmp_path, monkeypatch):
         "language": "en",
     }))
     monkeypatch.setenv("TOMENOTAS_WHISPER_BIN", "/do/env")
+    monkeypatch.setenv("TOMENOTAS_PIPER_BIN", "/do/env/piper")
     monkeypatch.setenv("TOMENOTAS_LANGUAGE", "es")
     cfg = Config.load(arquivo)
     assert cfg.whisper_bin == Path("/do/env")
+    assert cfg.piper_bin == Path("/do/env/piper")
     assert cfg.language == "es"
 
 
