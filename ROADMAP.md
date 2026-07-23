@@ -271,6 +271,66 @@ sem perda; combinação de filtros (texto + tag + favorito) funciona;
 pendentes automaticamente e nenhuma nota/tag/favorito se perde** (validado
 por teste com banco populado de versão antiga).
 
+## Plano — camadas físicas (Clean Architecture leve)
+
+O pacote hoje é plano (`src/tomenotas/*.py`), mas a separação lógica já
+existe: núcleo puro e testado, I/O injetável, cola GTK fina. Este plano
+transforma a separação lógica em estrutura física **sem** a cerimônia
+completa de Clean Architecture (nada de interactors/DTOs/repositórios
+abstratos — duck typing + injeção já cumprem o papel de interfaces).
+
+### Estrutura alvo
+
+```
+src/tomenotas/
+├── domain/    # tipos e regras puras, zero I/O
+│   ├── note.py      (Note, DbNote, preview)
+│   ├── state.py     (State, ToggleAction, status/Pulsador)
+│   ├── periodo.py   (periodo_desde)
+│   └── errors.py    (TranscriptionError, PlayerError, RecorderError,
+│                     MigrationError)
+├── app/       # casos de uso (orquestram ports injetados)
+│   └── core.py      (DaemonCore)
+├── infra/     # adaptadores de I/O (subprocess, sqlite, fs, gsettings)
+│   ├── recorder.py, transcriber.py, player.py, notify.py
+│   ├── notes_db.py, migrations.py
+│   └── shortcuts.py, config.py, logs.py
+└── ui/        # GTK/AppIndicator/D-Bus (cola, fora da cobertura)
+    ├── daemon.py, window.py, settings_page.py
+```
+
+Regra de dependência (de fora para dentro): `ui → app/infra/domain`,
+`infra → domain`, `app → domain`, `domain → nada interno`. Corrige de
+quebra a violação atual: `core.py` importa exceções e `preview` da
+infraestrutura — na migração elas sobem para `domain/errors.py` e
+`domain/note.py`.
+
+### Etapas (cada uma entregável, suíte verde o tempo todo)
+
+1. **domain/**: extrair os tipos puros e as exceções; ajustar imports do
+   restante. É a etapa que desfaz a inversão de dependência do core.
+2. **app/**: mover `DaemonCore`; após esta etapa `app` importa só
+   `domain`.
+3. **infra/**: mover os adaptadores + config/logs/migrations.
+4. **ui/**: mover a cola (renomear `settings_window.py` →
+   `settings_page.py`); atualizar o entry point
+   (`tomenotas-daemon = tomenotas.ui.daemon:main`) e os `omit` de
+   cobertura no pyproject; reinstalar via install.sh.
+5. **Teste de arquitetura**: `tests/test_arquitetura.py` (AST, sem
+   dependências novas) que falha se: `gi` for importado fora de `ui/`;
+   `domain/` importar qualquer camada interna; `app/` importar `infra/`
+   ou `ui/`; `infra/` importar `app/` ou `ui/`. A regra vira gate de
+   teste, não disciplina.
+6. **Docs**: reescrever a seção de arquitetura do CLAUDE.md e o README
+   (estrutura de pastas e onde cada coisa nova deve entrar).
+
+Sem shims de compatibilidade: os caminhos de módulo são internos (o único
+consumidor externo é o entry point, atualizado na etapa 4).
+
+**Critério de pronto:** mesma funcionalidade e mesmos testes passando
+(cobertura ≥ 90% no núcleo), mais o teste de arquitetura no gate; nenhum
+import cruzando camadas na direção proibida.
+
 ## Riscos e pontos em aberto
 
 - **Hotkeys globais no Wayland/GNOME**: hoje a única forma confiável é via
