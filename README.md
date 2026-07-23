@@ -110,9 +110,7 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ## Onde ficam os arquivos
 
 ```
-~/bin/gravar.sh
-~/bin/listar.sh
-~/bin/ler.sh
+~/bin/ler.sh                    # fluxo TTS legado, atalho Super+T
 ~/bin/tomenotas-daemon          # daemon (link para o venv abaixo)
 ~/bin/tomenotas-hotkey-record   # cliente D-Bus chamado pelo Super+R
 ~/bin/tomenotas-hotkey-window   # cliente D-Bus chamado pelo Super+L
@@ -125,9 +123,8 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ├── icons/              # ícones da bandeja (estado)
 ├── daemon.log          # log do daemon (rotativo)
 ├── notes.db            # banco de notas (fonte da verdade; backups .bak-*)
-├── notes/              # espelho .txt das notas (usado por ler.sh/listar.sh)
-├── current_note        # ponteiro para a nota selecionada em listar.sh
-└── recording.pid        # usado só pelo gravar.sh legado, não pelo daemon
+├── notes/              # espelho .txt das notas (alimenta o ler.sh)
+└── current_note        # ponteiro legado lido pelo ler.sh (opcional)
 ~/whisper.cpp/           # binário e modelo do whisper.cpp
 ~/piper/                 # binário e voz do Piper
 ```
@@ -196,8 +193,8 @@ sudo apt install -y pulseaudio-utils
 
 **Binário do whisper.cpp não encontrado**
 Dependendo da versão, o binário compilado se chama `whisper-cli` ou `main`.
-Verifique em `~/whisper.cpp/build/bin/` e ajuste a variável `WHISPER_BIN` em
-`~/bin/gravar.sh` se necessário.
+Verifique em `~/whisper.cpp/build/bin/` e ajuste `whisper_bin` em
+`~/.config/tomenotas/config.json` se necessário.
 
 **Nenhum som sai ao gravar/testar o microfone**
 Teste a captura isoladamente antes de depender dos atalhos:

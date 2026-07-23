@@ -93,34 +93,33 @@ still standalone scripts communicating through shared files under
   `install.sh`). Unlike the hotkey clients, it *does* start the daemon if
   it isn't running (waits for the D-Bus name, up to ~5s) before calling
   `ShowWindow()` — opening the app is an explicit user request.
-- **`gravar.sh`** / **`listar.sh`** — legacy standalone flows (arecord +
-  `recording.pid` + whisper.cpp; zenity list writing `current_note`). Still
-  installed for manual use, but no longer bound to keys.
-- **`ler.sh`** (Super+T) — reads `current_note` (falling back to the most recent note
-  if none is selected or the pointer is stale) and pipes its text through Piper TTS,
-  playing the resulting audio with `paplay`.
+- **`ler.sh`** (Super+T) — the last legacy bash flow: reads `current_note`
+  (falling back to the most recent note) from the `.txt` mirror and pipes
+  its text through Piper TTS, playing with `paplay`. This is why the
+  mirror exists; retiring it (D-Bus `ReadCurrentNote()` in the daemon) is
+  a backlog item. `gravar.sh`/`listar.sh` were retired — `install.sh`
+  deletes their old copies from `~/bin` on upgrade.
 - **`install.sh`** — installs apt dependencies (including `python3-gi` and
   `gir1.2-ayatanaappindicator3-0.1` for the daemon), clones/builds whisper.cpp and
   downloads a model, downloads the Piper binary + `pt_BR-faber-medium` voice, copies
-  the scripts + daemon + hotkey client to `~/bin`, rewrites the binary/model paths
-  in the copies via `sed`, and registers the three keybindings via `gsettings`
-  (record → `tomenotas-hotkey-record`, not `gravar.sh`).
+  `ler.sh` + the D-Bus clients to `~/bin`, installs the daemon venv, and
+  registers the three keybindings via `gsettings`.
 - **`uninstall.sh`** — reverses `install.sh`; by default keeps notes and the
   whisper.cpp/Piper installs (large downloads), removable via `--purge-notes` /
   `--purge-deps`.
 
-Key invariant: the **bash scripts** in this repo (`gravar.sh`, `listar.sh`,
-`ler.sh`) are **templates**. `install.sh` copies them to `~/bin/` and then patches
-the `WHISPER_BIN`/`WHISPER_MODEL`/`PIPER_BIN`/`PIPER_MODEL` variables in the
-*copies* with `sed`. When editing these scripts, preserve the exact variable
-assignment format the installer's `sed` patterns expect (e.g. `^WHISPER_BIN=.*`),
-or update the corresponding `sed` line in `install.sh` to match. The Python
-daemon is **not** sed-patched — it reads `~/.config/tomenotas/config.json`
-(written by `install.sh`) / `TOMENOTAS_*` env vars via `config.py`.
+Key invariant: `ler.sh` in this repo is a **template**. `install.sh` copies
+it to `~/bin/` and then patches the `PIPER_BIN`/`PIPER_MODEL` variables in
+the *copy* with `sed`. When editing it, preserve the exact variable
+assignment format the installer's `sed` patterns expect (e.g.
+`^PIPER_BIN=.*`), or update the corresponding `sed` line in `install.sh` to
+match. The Python daemon is **not** sed-patched — it reads
+`~/.config/tomenotas/config.json` (written by `install.sh`) /
+`TOMENOTAS_*` env vars via `infra/config.py`.
 
 State/data layout (see README "Onde ficam os arquivos" for the authoritative list):
 ```
-~/bin/{gravar,listar,ler}.sh
+~/bin/ler.sh                    # legacy TTS flow, bound to Super+T
 ~/bin/tomenotas-daemon          # symlink into the venv below
 ~/bin/tomenotas-hotkey-record   # D-Bus client bound to Super+R
 ~/bin/tomenotas-hotkey-window   # D-Bus client bound to Super+L
@@ -129,9 +128,8 @@ State/data layout (see README "Onde ficam os arquivos" for the authoritative lis
 ~/.local/share/tomenotas/
 ├── venv/              # daemon package install (system-site-packages)
 ├── notes.db           # SQLite source of truth (+ notes.db.bak-* backups)
-├── notes/*.txt        # read-only .txt mirror of the db (legacy scripts)
-├── current_note       # path to the note selected in listar.sh
-└── recording.pid       # only written by the legacy gravar.sh, not the daemon
+├── notes/*.txt        # read-only .txt mirror of the db (feeds ler.sh)
+└── current_note       # legacy pointer read by ler.sh (optional)
 ~/whisper.cpp/          # whisper.cpp build + model
 ~/piper/                 # Piper binary + voice model
 ```

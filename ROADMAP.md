@@ -162,6 +162,9 @@ na bandeja, sem abrir a janela.
       ao `gsettings custom-keybindings` (ver riscos abaixo)
 - [ ] Empacotar como `.deb` de verdade (hoje a distribuição é via
       install.sh + venv)
+- [ ] Aposentar o `ler.sh` (último fluxo bash): método D-Bus
+      `ReadCurrentNote()` no daemon como alvo do Super+T — permitiria
+      também desligar o espelho `.txt`
 
 ## Detalhamento — SQLite, filtros, tags e favoritos (proposta v3)
 
@@ -222,11 +225,12 @@ CREATE VIRTUAL TABLE notes_fts USING fts5(
 - **Migração automática na primeira execução**: importa os `.txt` de
   `notes/` (timestamp do nome → `created_at`), move os originais para
   `notes/backup-pre-sqlite/` em vez de apagar (sem perda).
-- O banco vira a fonte da verdade. Os scripts legados (`listar.sh`,
-  `ler.sh`) leem `.txt` — **decisão implementada**: cada nota mantém um
+- O banco vira a fonte da verdade. O script legado remanescente (`ler.sh`,
+  Super+T) lê `.txt` — **decisão implementada**: cada nota mantém um
   espelho `.txt` em `notes/` (criado no save, removido no delete), e
   `.txt` criados por fora do daemon são importados na abertura seguinte;
   por isso a migração inicial importa os `.txt` existentes sem movê-los.
+  (`gravar.sh` e `listar.sh` foram aposentados e removidos.)
 
 ### Migrations — evolução do esquema sem perda de dados
 

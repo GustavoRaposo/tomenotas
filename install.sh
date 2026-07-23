@@ -52,15 +52,15 @@ echo "==> Criando diretórios..."
 mkdir -p "$BIN_DIR" "$NOTES_DIR"
 
 echo "==> Copiando scripts para $BIN_DIR..."
-cp "$SCRIPT_DIR/gravar.sh" "$BIN_DIR/gravar.sh"
-cp "$SCRIPT_DIR/listar.sh" "$BIN_DIR/listar.sh"
 cp "$SCRIPT_DIR/ler.sh" "$BIN_DIR/ler.sh"
 cp "$SCRIPT_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-record"
 cp "$SCRIPT_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-window"
 cp "$SCRIPT_DIR/tomenotas-open" "$BIN_DIR/tomenotas-open"
-chmod +x "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh" "$BIN_DIR/ler.sh" \
+chmod +x "$BIN_DIR/ler.sh" \
     "$BIN_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-window" \
     "$BIN_DIR/tomenotas-open"
+# limpa scripts legados de instalações anteriores (aposentados)
+rm -f "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh"
 
 echo "==> Instalando o daemon (pacote Python em venv)..."
 VENV_DIR="$DATA_DIR/venv"
@@ -135,11 +135,8 @@ if [ "$SKIP_WHISPER" -eq 0 ]; then
         echo "AVISO: não encontrei o binário compilado automaticamente. Verifique $WHISPER_DIR/build/bin/"
     fi
 
-    echo "==> Ajustando caminhos do whisper.cpp em gravar.sh..."
-    sed -i "s|^WHISPER_BIN=.*|WHISPER_BIN=\"$WHISPER_BIN_PATH\"|" "$BIN_DIR/gravar.sh"
-    sed -i "s|^WHISPER_MODEL=.*|WHISPER_MODEL=\"$MODEL_FILE\"|" "$BIN_DIR/gravar.sh"
 else
-    echo "==> Pulando instalação do whisper.cpp (--skip-whisper). Ajuste WHISPER_BIN em $BIN_DIR/gravar.sh e os caminhos em ~/.config/tomenotas/config.json"
+    echo "==> Pulando instalação do whisper.cpp (--skip-whisper). Ajuste os caminhos em ~/.config/tomenotas/config.json"
 fi
 
 if [ "$SKIP_PIPER" -eq 0 ]; then
