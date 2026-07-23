@@ -87,9 +87,10 @@ O instalador:
    pelo menu da bandeja ("Sair") para desativá-lo.
 2. Menu da bandeja → **Abrir** → janela com sidebar de seções:
    - **Notas**: busca por texto (full-text, por prefixo, ordenada por
-     relevância), chips de **tags** (várias = interseção), filtro
-     **★ Favoritos** e por período (hoje/7/30 dias). Por nota: ★ favorita,
-     🏷 gerencia tags, ▶ ouve (vira ⏸ enquanto toca) e 🗑 apaga.
+     relevância), dropdown de **tags** (lista as existentes no banco),
+     filtro **★ Favoritos** e por período (hoje/7/30 dias). Por nota:
+     ★ favorita, 🏷 gerencia tags, ▶ ouve (vira ⏸ enquanto toca) e
+     🗑 apaga.
    - **Tags**: criar, listar (com nº de notas), renomear (unindo com a
      existente se o nome coincidir) e apagar tags — apagar uma tag nunca
      apaga as notas.

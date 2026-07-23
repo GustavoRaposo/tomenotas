@@ -38,9 +38,10 @@ class NotesWindow(Gtk.Window):
         self._player = player
         self._notifier = notifier
         self._playing_button = None  # botão da nota tocando agora
-        self._tags_ativas = set()
+        self._tag_ativa = ""  # tag selecionada no dropdown ("" = todas)
         self._so_favoritos = False
         self._periodo = ""
+        self._recarregando_tags = False  # evita "changed" durante rebuild
 
         self.set_default_size(840, 560)
 
@@ -85,7 +86,7 @@ class NotesWindow(Gtk.Window):
         self.present()
 
     def refresh(self):
-        self._reconstroi_chips()
+        self._reconstroi_dropdown_tags()
         self._recarrega_lista()
         self._recarrega_tags()
         self._config.refresh()
@@ -93,7 +94,7 @@ class NotesWindow(Gtk.Window):
     def _on_troca_pagina(self, *_args):
         nome = self._stack.get_visible_child_name()
         if nome == "notas":
-            self._reconstroi_chips()
+            self._reconstroi_dropdown_tags()
             self._recarrega_lista()
         elif nome == "tags":
             self._recarrega_tags()
@@ -118,7 +119,7 @@ class NotesWindow(Gtk.Window):
                             lambda *_: self._recarrega_lista())
         caixa.pack_start(self._busca, False, False, 0)
 
-        # ---- linha de filtros: favoritos + período ----
+        # ---- linha de filtros: favoritos + tag (dropdown) + período ----
         filtros = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         caixa.pack_start(filtros, False, False, 0)
 
@@ -127,17 +128,17 @@ class NotesWindow(Gtk.Window):
         self._botao_favoritos.connect("toggled", self._on_favoritos_toggle)
         filtros.pack_start(self._botao_favoritos, False, False, 0)
 
+        self._combo_tag = Gtk.ComboBoxText()
+        self._combo_tag.set_tooltip_text("Filtrar por tag")
+        self._combo_tag.connect("changed", self._on_tag_mudou)
+        filtros.pack_start(self._combo_tag, False, False, 0)
+
         self._combo_periodo = Gtk.ComboBoxText()
         for id_periodo, rotulo in PERIODOS:
             self._combo_periodo.append(id_periodo, rotulo)
         self._combo_periodo.set_active_id("")
         self._combo_periodo.connect("changed", self._on_periodo_mudou)
         filtros.pack_start(self._combo_periodo, False, False, 0)
-
-        # ---- chips de tags (interseção quando várias ativas) ----
-        self._chips = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE,
-                                  max_children_per_line=8)
-        caixa.pack_start(self._chips, False, False, 0)
 
         rolagem = Gtk.ScrolledWindow()
         rolagem.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -149,17 +150,21 @@ class NotesWindow(Gtk.Window):
 
         return caixa
 
-    def _reconstroi_chips(self):
-        for filho in self._chips.get_children():
-            self._chips.remove(filho)
+    def _reconstroi_dropdown_tags(self):
+        """Repovoa o dropdown com as tags do banco, preservando a seleção
+        (volta para "Todas" se a tag selecionada foi apagada/renomeada)."""
         nomes = self._store.tags()
-        self._tags_ativas &= set(nomes)  # descarta tags que sumiram
-        for nome in nomes:
-            chip = Gtk.ToggleButton(label=nome)
-            chip.set_active(nome in self._tags_ativas)  # antes do connect
-            chip.connect("toggled", self._on_chip_toggle, nome)
-            self._chips.add(chip)
-        self._chips.show_all()
+        if self._tag_ativa not in nomes:
+            self._tag_ativa = ""
+        self._recarregando_tags = True  # rebuild não é escolha do usuário
+        try:
+            self._combo_tag.remove_all()
+            self._combo_tag.append("", "Todas as tags")
+            for nome in nomes:
+                self._combo_tag.append(nome, f"🏷 {nome}")
+            self._combo_tag.set_active_id(self._tag_ativa)
+        finally:
+            self._recarregando_tags = False
 
     def _recarrega_lista(self):
         self._parar_reproducao()
@@ -168,7 +173,7 @@ class NotesWindow(Gtk.Window):
 
         notas = self._store.search(
             texto=self._busca.get_text(),
-            tags=sorted(self._tags_ativas),
+            tags=[self._tag_ativa] if self._tag_ativa else [],
             favoritos=self._so_favoritos,
             desde=periodo_desde(self._periodo),
         )
@@ -181,7 +186,7 @@ class NotesWindow(Gtk.Window):
         self._lista.show_all()
 
     def _tem_filtros(self):
-        return bool(self._busca.get_text().strip() or self._tags_ativas
+        return bool(self._busca.get_text().strip() or self._tag_ativa
                     or self._so_favoritos or self._periodo)
 
     def _rotulo_vazio(self):
@@ -194,11 +199,10 @@ class NotesWindow(Gtk.Window):
         rotulo.set_justify(Gtk.Justification.CENTER)
         return rotulo
 
-    def _on_chip_toggle(self, chip, nome):
-        if chip.get_active():
-            self._tags_ativas.add(nome)
-        else:
-            self._tags_ativas.discard(nome)
+    def _on_tag_mudou(self, combo):
+        if self._recarregando_tags:
+            return
+        self._tag_ativa = combo.get_active_id() or ""
         self._recarrega_lista()
 
     def _on_favoritos_toggle(self, botao):

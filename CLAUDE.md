@@ -71,9 +71,9 @@ still standalone scripts communicating through shared files under
     for slow work (transcription, TTS synthesis), and the single main
     window with a `Gtk.StackSidebar` of three pages: **Notas** (FTS search
     via `store.search()` — filters re-query the db, no client-side
-    filter_func; tag chips with intersection, favorite star per row, tag
-    popover, period combo backed by `periodo_desde`, play/pause per note,
-    delete with confirmation), **Tags** (CRUD over
+    filter_func; single-select tag dropdown listing db tags, favorite star
+    per row, tag popover, period combo backed by `periodo_desde`,
+    play/pause per note, delete with confirmation), **Tags** (CRUD over
     `create_tag`/`rename_tag`/`delete_tag`/`tags_com_contagem`, with merge
     warning on rename collisions) and **Configurações** (`SettingsPage` in
     settings_window.py, embedded — the window forwards key-press-event to
