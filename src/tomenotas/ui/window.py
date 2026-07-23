@@ -354,6 +354,7 @@ class NotesWindow(Gtk.Window):
 
     def _monta_linha(self, nota):
         linha = Gtk.ListBoxRow(selectable=False)
+        linha.note = nota  # lido por _on_nota_ativada (abrir o detalhe)
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6,
                        margin=6)
         linha.add(hbox)
