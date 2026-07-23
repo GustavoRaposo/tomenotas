@@ -280,13 +280,18 @@ class TrayDaemon:
 def main():
     config = Config.load()
     log = setup_logging(config.base_dir / "daemon.log")
+    # Match the Wayland app_id to tomenotas.desktop so the taskbar/dock
+    # shows our icon (and groups the window under the launcher) instead
+    # of a generic one. On X11 the window icon (set in the window) covers
+    # it; StartupWMClass in the .desktop is the belt-and-suspenders.
+    GLib.set_prgname("tomenotas")
     # The daemon can be launched from any directory (terminal, autostart,
     # launcher) — including one that may cease to exist. Anchor the cwd
     # at base_dir so subprocesses (whisper/piper/arecord) never inherit
     # an invalid cwd (whisper-cli aborts if getcwd() fails).
     os.chdir(config.base_dir)
     log.info("daemon starting (tomenotas %s)", __version__)
-    notifier = Notifier()
+    notifier = Notifier(icon=config.icons_dir / "tomenotas-idle.svg")
     try:
         store = SqliteNoteStore(config.db_path, config.mirror_dir,
                                 mirror=config.mirror_enabled)

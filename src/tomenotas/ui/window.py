@@ -47,6 +47,12 @@ class NotesWindow(Gtk.Window):
 
         self.set_default_size(840, 560)
 
+        # window icon → shown in the taskbar/dock (X11) and as the title
+        # icon; on Wayland the app_id (set via prgname) does the matching
+        icon_file = config.icons_dir / "tomenotas-idle.svg"
+        if icon_file.exists():
+            self.set_icon_from_file(str(icon_file))
+
         header = Gtk.HeaderBar(title="Tomenotas", subtitle="Suas notas de voz")
         header.set_show_close_button(True)
         self.set_titlebar(header)
