@@ -1,5 +1,10 @@
 # Tomenotas
 
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)
+
 Assistente pessoal simples para Ubuntu: grave notas de voz com um atalho de
 teclado, transcreva automaticamente para texto (offline, sem IA/LLM) e ouça
 qualquer nota depois via TTS em português.
