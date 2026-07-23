@@ -1,0 +1,28 @@
+#!/bin/bash
+# tomenotas-open
+# Alvo do lançador do menu de aplicativos: garante que o daemon está
+# rodando (religa se o usuário tiver clicado em "Sair") e abre a janela
+# de notas. Diferente dos clientes de atalho, aqui subir o daemon é
+# desejado — o usuário pediu explicitamente para abrir o app.
+
+DBUS_ARGS=(--session --dest com.tomenotas.Daemon
+           --object-path /com/tomenotas/Daemon)
+
+vivo() {
+    gdbus call "${DBUS_ARGS[@]}" \
+        --method com.tomenotas.Daemon.Ping > /dev/null 2>&1
+}
+
+if ! vivo; then
+    setsid "$HOME/bin/tomenotas-daemon" > /dev/null 2>&1 &
+    # espera o daemon registrar o nome D-Bus (até ~5s)
+    for _ in $(seq 1 20); do
+        sleep 0.25
+        vivo && break
+    done
+fi
+
+gdbus call "${DBUS_ARGS[@]}" \
+    --method com.tomenotas.Daemon.ShowWindow > /dev/null 2>&1
+
+exit 0

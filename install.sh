@@ -57,8 +57,10 @@ cp "$SCRIPT_DIR/listar.sh" "$BIN_DIR/listar.sh"
 cp "$SCRIPT_DIR/ler.sh" "$BIN_DIR/ler.sh"
 cp "$SCRIPT_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-record"
 cp "$SCRIPT_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-window"
+cp "$SCRIPT_DIR/tomenotas-open" "$BIN_DIR/tomenotas-open"
 chmod +x "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh" "$BIN_DIR/ler.sh" \
-    "$BIN_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-window"
+    "$BIN_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-window" \
+    "$BIN_DIR/tomenotas-open"
 
 echo "==> Instalando o daemon (pacote Python em venv)..."
 VENV_DIR="$DATA_DIR/venv"
@@ -71,6 +73,20 @@ ln -sf "$VENV_DIR/bin/tomenotas-daemon" "$BIN_DIR/tomenotas-daemon"
 echo "==> Instalando ícones da bandeja..."
 mkdir -p "$DATA_DIR/icons"
 cp "$SCRIPT_DIR/assets/icons/"*.svg "$DATA_DIR/icons/"
+
+echo "==> Criando lançador no menu de aplicativos..."
+mkdir -p "$HOME/.local/share/applications"
+cat > "$HOME/.local/share/applications/tomenotas.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Tomenotas
+Comment=Assistente de notas de voz (STT/TTS offline)
+Exec=$BIN_DIR/tomenotas-open
+Icon=$DATA_DIR/icons/tomenotas-idle.svg
+Terminal=false
+Categories=Utility;Audio;
+Keywords=notas;voz;gravar;transcrever;tomenotas;
+EOF
 
 echo "==> Configurando início automático no login..."
 mkdir -p "$HOME/.config/autostart"

@@ -86,6 +86,11 @@ still standalone scripts communicating through shared files under
   `gdbus`; if the daemon isn't running the call fails silently, so the
   shortcuts are dead unless the app is open (this is the intended behavior —
   don't "fix" it by falling back to the legacy scripts).
+- **`tomenotas-open`** — target of the applications-menu launcher
+  (`~/.local/share/applications/tomenotas.desktop`, written by
+  `install.sh`). Unlike the hotkey clients, it *does* start the daemon if
+  it isn't running (waits for the D-Bus name, up to ~5s) before calling
+  `ShowWindow()` — opening the app is an explicit user request.
 - **`gravar.sh`** / **`listar.sh`** — legacy standalone flows (arecord +
   `recording.pid` + whisper.cpp; zenity list writing `current_note`). Still
   installed for manual use, but no longer bound to keys.
@@ -117,6 +122,7 @@ State/data layout (see README "Onde ficam os arquivos" for the authoritative lis
 ~/bin/tomenotas-daemon          # symlink into the venv below
 ~/bin/tomenotas-hotkey-record   # D-Bus client bound to Super+R
 ~/bin/tomenotas-hotkey-window   # D-Bus client bound to Super+L
+~/bin/tomenotas-open            # app-menu launcher (starts daemon if needed)
 ~/.config/tomenotas/config.json # whisper paths, read by the daemon
 ~/.local/share/tomenotas/
 ├── venv/              # daemon package install (system-site-packages)

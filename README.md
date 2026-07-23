@@ -74,7 +74,9 @@ O instalador:
 
 ## Uso
 
-0. O daemon inicia sozinho no login (autostart). Para iniciar manualmente:
+0. O daemon inicia sozinho no login (autostart). Também dá para abrir pelo
+   **menu de aplicativos** (procure "Tomenotas") — o lançador religa o
+   daemon se preciso e abre a janela de notas. Manualmente:
    ```bash
    ~/bin/tomenotas-daemon &
    ```
@@ -105,6 +107,8 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ~/bin/tomenotas-daemon          # daemon (link para o venv abaixo)
 ~/bin/tomenotas-hotkey-record   # cliente D-Bus chamado pelo Super+R
 ~/bin/tomenotas-hotkey-window   # cliente D-Bus chamado pelo Super+L
+~/bin/tomenotas-open            # lançador: religa o daemon e abre a janela
+~/.local/share/applications/tomenotas.desktop  # entrada no menu de apps
 ~/.config/tomenotas/config.json # caminhos do whisper/piper (lidos pelo daemon)
 ~/.config/autostart/tomenotas.desktop  # inicia o daemon no login
 ~/.local/share/tomenotas/
