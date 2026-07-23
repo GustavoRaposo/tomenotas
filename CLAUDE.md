@@ -43,9 +43,11 @@ clients that die silently when it isn't running:
   - **`app/core.py`** — the use case: `DaemonCore` state machine (idle →
     recording → transcribing), fully synchronous, no GTK/D-Bus/threads;
     I/O ports (recorder/transcriber/notes/notifier) are injected.
-    `toggle(critical=False)` returns a `ToggleAction` telling the glue
-    what to do next (critical=True → the saved note is born critical;
-    the mode is set by the hotkey that STARTS the recording);
+    `toggle(critical=False, meeting=False)` returns a `ToggleAction`
+    telling the glue what to do next (critical=True → note born
+    critical; meeting=True → records via the injected meeting recorder;
+    the mode is set by the hotkey that STARTS the recording, and the
+    active recorder is used for stop/finish/shutdown);
     `read_current_critical()` reads the latest active critical aloud.
     Observer hooks (both may fire from the transcription thread — glue
     wraps in `GLib.idle_add`): `on_state_change` (tray icon) and
@@ -58,6 +60,11 @@ clients that die silently when it isn't running:
     one-shot timer is injected (`schedule`/`cancel`; glue passes
     GLib.timeout_add_seconds/source_remove), keeping it fully testable.
   - **`infra/`** — injectable I/O adapters: `recorder.py` (arecord),
+    `meeting_recorder.py` (`MeetingRecorder` — meeting mode Super+[:
+    mixes microphone + computer audio into a null sink via pactl
+    loopbacks and records the mix with `pw-record`; same duck-typed
+    interface as `Recorder` so the core swaps them; modules torn down on
+    stop/abort and `cleanup_stale()` clears any left by a crash),
     `transcriber.py` (whisper.cpp), `player.py` (Piper + paplay),
     `notify.py` (notify-send, `--app-name=Tomenotas`, click action),
     `shortcuts.py` (gsettings keybindings + conflict detection),
@@ -127,7 +134,9 @@ clients that die silently when it isn't running:
   (Super+Y) / **`tomenotas-hotkey-read`** (Super+T) /
   **`tomenotas-hotkey-critical`** (Super+I, records a critical note) /
   **`tomenotas-hotkey-critical-read`** (Super+K, reads the latest active
-  critical) — thin bash D-Bus clients, the targets of the keybindings. They just call
+  critical) / **`tomenotas-hotkey-meeting`** (Super+[, records mic +
+  computer audio) — thin bash D-Bus clients, the targets of the
+  keybindings. They just call
   `ToggleRecording()` / `ShowWindow()` / `ReadCurrentNote()` via `gdbus`;
   if the daemon isn't running the call fails silently, so the shortcuts
   are dead unless the app is open (this is the intended behavior — don't

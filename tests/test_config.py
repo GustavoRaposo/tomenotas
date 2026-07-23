@@ -14,6 +14,7 @@ def test_defaults_derive_from_base_dir(tmp_path, monkeypatch):
     cfg = Config(base_dir=Path("/x/dados"))
     assert cfg.notes_dir == Path("/x/dados/notes")
     assert cfg.audio_tmp == Path("/x/dados/tmp_recording.wav")
+    assert cfg.meeting_tmp == Path("/x/dados/tmp_meeting.wav")
     assert cfg.tts_tmp == Path("/x/dados/tmp_tts.wav")
     assert cfg.icons_dir == Path("/x/dados/icons")
     assert cfg.db_path == Path("/x/dados/notes.db")

@@ -56,11 +56,14 @@ def test_actions_point_to_the_right_commands():
         "/home/x/bin/tomenotas-hotkey-critical"
     assert actions["ler-critica"].command == \
         "/home/x/bin/tomenotas-hotkey-critical-read"
+    assert actions["reuniao"].command == \
+        "/home/x/bin/tomenotas-hotkey-meeting"
     assert actions["gravar"].default == "<Super>r"
     assert actions["listar"].default == "<Super>y"
     assert actions["ler"].default == "<Super>t"
     assert actions["critica"].default == "<Super>i"
     assert actions["ler-critica"].default == "<Super>k"
+    assert actions["reuniao"].default == "<Super>bracketleft"
 
 
 def test_get_binding_strips_quotes():
@@ -162,7 +165,7 @@ def test_ensure_defaults_registers_only_missing_bindings():
     manager = ShortcutManager(BIN, run=gs)
     registered = manager.ensure_defaults()
 
-    assert registered == ["listar", "ler", "critica", "ler-critica"]
+    assert registered == ["listar", "ler", "critica", "ler-critica", "reuniao"]
     assert manager.get_binding("gravar") == "<Super>F9"  # untouched
     assert manager.get_binding("listar") == "<Super>y"
     assert manager.get_binding("ler") == "<Super>t"
@@ -172,7 +175,7 @@ def test_ensure_defaults_registers_only_missing_bindings():
 def test_ensure_defaults_on_fresh_system_registers_all():
     gs = FakeGsettings(listing="@as []")
     manager = ShortcutManager(BIN, run=gs)
-    assert manager.ensure_defaults() == ["gravar", "listar", "ler", "critica", "ler-critica"]
+    assert manager.ensure_defaults() == ["gravar", "listar", "ler", "critica", "ler-critica", "reuniao"]
     assert manager.get_binding("gravar") == "<Super>r"
 
 
@@ -195,7 +198,7 @@ def test_ensure_defaults_relists_orphan_binding_keeping_its_value():
     manager = ShortcutManager(BIN, run=gs)
     registered = manager.ensure_defaults()
 
-    assert registered == ["gravar", "listar", "ler", "critica", "ler-critica"]
+    assert registered == ["gravar", "listar", "ler", "critica", "ler-critica", "reuniao"]
     assert RECORD_PATH in gs.listing
     assert manager.get_binding("gravar") == "<Super>F9"  # value kept
 

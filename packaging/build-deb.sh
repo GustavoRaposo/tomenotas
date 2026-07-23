@@ -115,6 +115,7 @@ EOF
 # clientes D-Bus e lançador
 cp "$ROOT/tomenotas-hotkey-record" "$ROOT/tomenotas-hotkey-window" \
    "$ROOT/tomenotas-hotkey-critical" "$ROOT/tomenotas-hotkey-critical-read" \
+   "$ROOT/tomenotas-hotkey-meeting" \
    "$ROOT/tomenotas-hotkey-read" "$ROOT/tomenotas-open" "$STAGING/usr/bin/"
 chmod 755 "$STAGING/usr/bin/"*
 
@@ -148,7 +149,7 @@ Section: sound
 Priority: optional
 Architecture: $ARCH
 Installed-Size: $INSTALLED_SIZE
-Depends: python3 (>= 3.10), python3-gi, python3-gi-cairo, gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1, alsa-utils, libnotify-bin, pulseaudio-utils, libgomp1, libstdc++6, sound-theme-freedesktop
+Depends: python3 (>= 3.10), python3-gi, python3-gi-cairo, gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1, alsa-utils, libnotify-bin, pulseaudio-utils, pipewire-bin, libgomp1, libstdc++6, sound-theme-freedesktop
 Maintainer: Gustavo Raposo <gustavo_f.raposo@hotmail.com>
 Description: Assistente pessoal de notas de voz (STT/TTS offline)
  Grave notas de voz com um atalho global (Super+R), transcritas

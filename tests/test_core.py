@@ -69,13 +69,15 @@ def make_core(tmp_path, fails_on_start=False, transcription_error=None,
               text="texto transcrito", player_error=None, ready=True):
     audio_tmp = tmp_path / "tmp_recording.wav"
     recorder = FakeRecorder(audio_tmp, fails_on_start=fails_on_start)
+    meeting = FakeRecorder(tmp_path / "tmp_meeting.wav")
     transcriber = FakeTranscriber(text=text, error=transcription_error,
                                   ready=ready)
     notes = SqliteNoteStore(tmp_path / "notes.db", tmp_path / "notes",
                             now=lambda: datetime(2026, 7, 22, 15, 0, 38))
     notifier = FakeNotifier()
     core = DaemonCore(recorder, transcriber, notes, notifier,
-                      player=FakePlayer(error=player_error))
+                      player=FakePlayer(error=player_error),
+                      meeting_recorder=meeting)
     return core, recorder, transcriber, notes, notifier
 
 
@@ -254,6 +256,42 @@ def test_read_current_critical_with_player_error_notifies(tmp_path):
     assert notifier.messages == [
         ("Erro", "Voz do Piper não encontrada: /x")
     ]
+
+
+def test_toggle_meeting_uses_the_meeting_recorder(tmp_path):
+    core, mic, _, _, notifier = make_core(tmp_path, text="ata da reunião")
+    meeting = core._meeting_recorder
+    meeting.audio_tmp.write_bytes(b"RIFF")
+
+    action = core.toggle(meeting=True)
+    assert action is ToggleAction.STARTED
+    assert meeting.started and not mic.started  # the mix recorder started
+    assert "reunião" in notifier.messages[-1][1].lower()
+
+    core.toggle()  # same stop hotkey ends it
+    core.finish_recording()
+    assert meeting.stopped
+    assert not mic.stopped  # the mic recorder was never touched
+
+
+def test_meeting_note_is_saved_normal_not_critical(tmp_path):
+    core, _, _, notes, _ = make_core(tmp_path, text="reunião de equipe")
+    core._meeting_recorder.audio_tmp.write_bytes(b"RIFF")
+    core.toggle(meeting=True)
+    core.toggle()
+    core.finish_recording()
+    (note,) = notes.list()
+    assert note.text == "reunião de equipe"
+    assert note.critical is False
+
+
+def test_shutdown_aborts_the_active_meeting_recorder(tmp_path):
+    core, mic, _, _, _ = make_core(tmp_path)
+    meeting = core._meeting_recorder
+    core.toggle(meeting=True)
+    core.shutdown()
+    assert meeting.aborted
+    assert not mic.aborted
 
 
 def test_shutdown_aborts_recording(tmp_path):

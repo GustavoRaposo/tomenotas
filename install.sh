@@ -68,9 +68,11 @@ cp "$SCRIPT_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-window"
 cp "$SCRIPT_DIR/tomenotas-hotkey-read" "$BIN_DIR/tomenotas-hotkey-read"
 cp "$SCRIPT_DIR/tomenotas-hotkey-critical" "$BIN_DIR/tomenotas-hotkey-critical"
 cp "$SCRIPT_DIR/tomenotas-hotkey-critical-read" "$BIN_DIR/tomenotas-hotkey-critical-read"
+cp "$SCRIPT_DIR/tomenotas-hotkey-meeting" "$BIN_DIR/tomenotas-hotkey-meeting"
 cp "$SCRIPT_DIR/tomenotas-open" "$BIN_DIR/tomenotas-open"
 chmod +x "$BIN_DIR/tomenotas-hotkey-record" \
     "$BIN_DIR/tomenotas-hotkey-critical" "$BIN_DIR/tomenotas-hotkey-critical-read" \
+    "$BIN_DIR/tomenotas-hotkey-meeting" \
     "$BIN_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-read" \
     "$BIN_DIR/tomenotas-open"
 # limpa scripts legados de instalações anteriores (aposentados)
@@ -204,6 +206,7 @@ if [ "$SKIP_SHORTCUTS" -eq 0 ]; then
     echo "    Listar notas        : Super+Y"
     echo "    Ler nota            : Super+T"
     echo "    Ler crítica         : Super+K"
+    echo "    Gravar reunião      : Super+["
     # O registro em si é feito pelo daemon (ShortcutManager.ensure_defaults)
     # na primeira execução — fonte única, a mesma usada pela rota .deb.
 else
@@ -216,7 +219,7 @@ echo " Instalação concluída!"
 echo " Scripts em: $BIN_DIR"
 echo " Notas em:   $NOTES_DIR"
 echo " Atalhos:    Super+R (gravar), Super+I (crítica), Super+Y (listar),"
-echo "             Super+T (ler), Super+K (ler crítica)"
+echo "             Super+T (ler), Super+K (ler crítica), Super+[ (reunião)"
 echo ""
 echo " Inicie o daemon com: $BIN_DIR/tomenotas-daemon &"
 echo " No primeiro uso, o app abre as Configurações para baixar o"

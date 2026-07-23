@@ -23,6 +23,9 @@ rodando localmente na sua máquina.
 - **Notas críticas (alarme)**: grave com Super+I e a nota vira um alarme —
   notificações periódicas com som até você desativá-la na tela de notas.
   Intervalo e toque configuráveis; Super+K lê a crítica mais recente.
+- **Modo reunião**: grave com Super+[ e o app captura **seu microfone e o
+  áudio do PC ao mesmo tempo** (mixados) — ideal para transcrever
+  reuniões com a sua fala e a dos outros participantes.
 
 Cada gravação gera um arquivo `.txt` próprio. O áudio bruto (`.wav`) é
 temporário e apagado automaticamente depois da transcrição — só o texto fica
@@ -62,7 +65,7 @@ sua máquina. Baixe o `.deb` mais recente na
 e instale:
 
 ```bash
-sudo apt install ./tomenotas_1.3.0_amd64.deb
+sudo apt install ./tomenotas_1.4.0_amd64.deb
 ```
 
 O `apt` resolve as dependências declaradas no pacote. (Ele pode exibir
@@ -74,6 +77,7 @@ você abrir o app (menu de aplicativos → **Tomenotas**):
 1. O daemon **registra sozinho os atalhos de teclado** no GNOME:
    - **Super+R** — gravar/parar (só funciona com o daemon rodando)
    - **Super+I** — gravar nota **crítica** (vira alarme periódico)
+   - **Super+[** — gravar **reunião** (microfone + áudio do PC)
    - **Super+Y** — listar notas
    - **Super+T** — ler nota atual
    - **Super+K** — ler a nota crítica mais recente
@@ -87,7 +91,7 @@ Se você clonou o repositório em vez de baixar um `.deb` pronto:
 
 ```bash
 ./packaging/build-deb.sh    # requer git, cmake, build-essential e wget
-sudo apt install ./dist/tomenotas_1.3.0_amd64.deb
+sudo apt install ./dist/tomenotas_1.4.0_amd64.deb
 ```
 
 O script compila um `whisper-cli` estático (whisper.cpp v1.9.1, sem

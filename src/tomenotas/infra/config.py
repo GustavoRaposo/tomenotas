@@ -87,6 +87,10 @@ class Config:
         return self.base_dir / "tmp_recording.wav"
 
     @property
+    def meeting_tmp(self) -> Path:
+        return self.base_dir / "tmp_meeting.wav"
+
+    @property
     def tts_tmp(self) -> Path:
         return self.base_dir / "tmp_tts.wav"
 

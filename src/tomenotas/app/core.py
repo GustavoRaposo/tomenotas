@@ -16,14 +16,18 @@ log = logging.getLogger("tomenotas.core")
 
 
 class DaemonCore:
-    def __init__(self, recorder, transcriber, notes, notifier, player=None):
+    def __init__(self, recorder, transcriber, notes, notifier, player=None,
+                 meeting_recorder=None):
         self._recorder = recorder
+        self._meeting_recorder = meeting_recorder  # mic + system audio
+        self._active_recorder = recorder  # set per recording by toggle()
         self._transcriber = transcriber
         self._notes = notes
         self._notifier = notifier
         self._player = player  # used by read_current_note (Super+T)
         self._state = State.IDLE
         self._pending_critical = False  # mode of the recording in course
+        self._pending_meeting = False
         # Observer for state changes (tray icon).
         # Careful: finish_recording runs in a thread — the glue wraps
         # this with GLib.idle_add.
@@ -44,12 +48,18 @@ class DaemonCore:
         if self.on_state_change is not None:
             self.on_state_change(new)
 
-    def toggle(self, critical: bool = False) -> ToggleAction:
-        """critical=True (Super+I): same recording flow, but the saved
-        note is born critical. The mode is set by the hotkey that STARTS
-        the recording; either hotkey stops it."""
+    def toggle(self, critical: bool = False,
+               meeting: bool = False) -> ToggleAction:
+        """The hotkey that STARTS the recording sets its mode; any hotkey
+        stops it. critical=True (Super+I): the saved note is born
+        critical. meeting=True (Super+[): captures microphone + computer
+        audio via the meeting recorder."""
         if self.state is State.IDLE:
             self._pending_critical = critical
+            self._pending_meeting = meeting and self._meeting_recorder is not None
+            self._active_recorder = (self._meeting_recorder
+                                     if self._pending_meeting
+                                     else self._recorder)
             return self._start()
         if self.state is State.RECORDING:
             self._set_state(State.TRANSCRIBING)
@@ -72,16 +82,24 @@ class DaemonCore:
             )
             return ToggleAction.FAILED
         try:
-            self._recorder.start()
+            self._active_recorder.start()
         except FileNotFoundError:
-            log.error("arecord not found")
+            log.error("recorder start failed: missing binary")
             self._notifier.send(
-                "Erro", "arecord não encontrado. Instale o pacote alsa-utils."
+                "Erro",
+                "Ferramentas de captura de reunião não encontradas "
+                "(pactl/pw-record)."
+                if self._pending_meeting else
+                "arecord não encontrado. Instale o pacote alsa-utils.",
             )
             return ToggleAction.FAILED
         self._set_state(State.RECORDING)
         self._notifier.send(
-            "Gravação", "Gravando... aperte o atalho de novo para parar."
+            "Gravação",
+            "Gravando reunião (microfone + áudio do PC)... "
+            "aperte o atalho de novo para parar."
+            if self._pending_meeting else
+            "Gravando... aperte o atalho de novo para parar.",
         )
         return ToggleAction.STARTED
 
@@ -90,8 +108,9 @@ class DaemonCore:
         slow — the glue calls this in a thread to keep the main loop
         responsive."""
         try:
-            self._recorder.stop()
-            text = self._transcriber.transcribe(self._recorder.audio_tmp)
+            self._active_recorder.stop()
+            text = self._transcriber.transcribe(
+                self._active_recorder.audio_tmp)
         except TranscriptionError as error:
             log.error("transcription failed: %s", error)
             self._notifier.send("Erro", str(error))
@@ -107,7 +126,7 @@ class DaemonCore:
             if self.on_note_saved is not None:
                 self.on_note_saved(note)
         finally:
-            self._recorder.audio_tmp.unlink(missing_ok=True)
+            self._active_recorder.audio_tmp.unlink(missing_ok=True)
             self._set_state(State.IDLE)
 
     def read_current_note(self) -> None:
@@ -140,5 +159,5 @@ class DaemonCore:
 
     def shutdown(self) -> None:
         """Clean shutdown: aborts any pending recording without transcribing."""
-        self._recorder.abort()
+        self._active_recorder.abort()
         self._set_state(State.IDLE)

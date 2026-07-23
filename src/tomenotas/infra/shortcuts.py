@@ -82,6 +82,12 @@ class ShortcutManager:
                 "Ler crítica mais recente",
                 str(bin_dir / "tomenotas-hotkey-critical-read"), "<Super>k",
             ),
+            "reuniao": Action(
+                "reuniao", "Tomenotas - Reuniao",
+                "Gravar reunião (mic + PC)",
+                str(bin_dir / "tomenotas-hotkey-meeting"),
+                "<Super>bracketleft",
+            ),
         }
 
     def _out(self, *args: str) -> str:

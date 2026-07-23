@@ -34,6 +34,7 @@ from ..infra.recorder import Recorder  # noqa: E402
 from ..infra.shortcuts import ShortcutManager  # noqa: E402
 from ..infra.sound import AlarmSound  # noqa: E402
 from ..infra.downloads import Downloader, ModelManager  # noqa: E402
+from ..infra.meeting_recorder import MeetingRecorder  # noqa: E402
 from ..infra.transcriber import Transcriber  # noqa: E402
 from ..infra.voices import VoiceManager  # noqa: E402
 from .window import NotesWindow  # noqa: E402
@@ -53,6 +54,7 @@ INTROSPECTION_XML = """
   <interface name="com.tomenotas.Daemon">
     <method name="ToggleRecording"/>
     <method name="ToggleCriticalRecording"/>
+    <method name="ToggleMeetingRecording"/>
     <method name="ReadCurrentNote"/>
     <method name="ReadCurrentCritical"/>
     <method name="ShowWindow"/>
@@ -220,6 +222,9 @@ class TrayDaemon:
         elif method == "ToggleCriticalRecording":
             self._handle_toggle(critical=True)
             invocation.return_value(None)
+        elif method == "ToggleMeetingRecording":
+            self._handle_toggle(meeting=True)
+            invocation.return_value(None)
         elif method == "ReadCurrentNote":
             # TTS synthesis is slow — thread, like the transcription
             threading.Thread(
@@ -240,8 +245,8 @@ class TrayDaemon:
         elif method == "Ping":
             invocation.return_value(GLib.Variant("(s)", ("pong",)))
 
-    def _handle_toggle(self, critical=False):
-        action = self._core.toggle(critical=critical)
+    def _handle_toggle(self, critical=False, meeting=False):
+        action = self._core.toggle(critical=critical, meeting=meeting)
         if action is ToggleAction.STOP_REQUESTED:
             # Transcription is slow — run it in a thread so the main loop
             # stays responsive (tray and D-Bus keep answering).
@@ -274,12 +279,19 @@ def main():
     transcriber = Transcriber(
         config.whisper_bin, config.whisper_model, config.language
     )
+    meeting_recorder = MeetingRecorder(config.meeting_tmp)
+    # a previous crash may have left the mix sink loaded — clear it
+    try:
+        meeting_recorder.cleanup_stale()
+    except Exception as error:  # never block startup over cleanup
+        log.warning("meeting cleanup on startup failed: %s", error)
     core = DaemonCore(
         recorder=Recorder(config.audio_tmp),
         transcriber=transcriber,
         notes=store,
         notifier=notifier,
         player=player,
+        meeting_recorder=meeting_recorder,
     )
     sound = AlarmSound(config.alarm_sound)
 
