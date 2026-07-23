@@ -162,9 +162,10 @@ na bandeja, sem abrir a janela.
       ao `gsettings custom-keybindings` (ver riscos abaixo)
 - [ ] Empacotar como `.deb` de verdade (hoje a distribuição é via
       install.sh + venv)
-- [ ] Aposentar o `ler.sh` (último fluxo bash): método D-Bus
-      `ReadCurrentNote()` no daemon como alvo do Super+T — permitiria
-      também desligar o espelho `.txt`
+- [x] Aposentar o `ler.sh` (último fluxo bash): método D-Bus
+      `ReadCurrentNote()` no daemon como alvo do Super+T (lê a nota mais
+      recente via Player). O espelho `.txt` foi mantido de propósito,
+      como export das notas em texto puro
 
 ## Detalhamento — SQLite, filtros, tags e favoritos (proposta v3)
 

@@ -1,0 +1,14 @@
+#!/bin/bash
+# tomenotas-hotkey-read
+# Cliente D-Bus leve — alvo do atalho de teclado de ler (Super+T).
+# Só chama ReadCurrentNote() no daemon, que lê a nota mais recente em voz
+# alta (Piper); se o daemon não estiver rodando, a chamada falha em
+# silêncio e nada acontece (atalho só funciona com o app aberto).
+
+gdbus call --session \
+    --dest com.tomenotas.Daemon \
+    --object-path /com/tomenotas/Daemon \
+    --method com.tomenotas.Daemon.ReadCurrentNote \
+    > /dev/null 2>&1
+
+exit 0

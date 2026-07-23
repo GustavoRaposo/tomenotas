@@ -48,6 +48,7 @@ INTROSPECTION_XML = """
 <node>
   <interface name="com.tomenotas.Daemon">
     <method name="ToggleRecording"/>
+    <method name="ReadCurrentNote"/>
     <method name="ShowWindow"/>
     <method name="ShowSettings"/>
     <method name="Ping">
@@ -201,6 +202,12 @@ class TrayDaemon:
         if method == "ToggleRecording":
             self._handle_toggle()
             invocation.return_value(None)
+        elif method == "ReadCurrentNote":
+            # síntese TTS é lenta — thread, como a transcrição
+            threading.Thread(
+                target=self._core.read_current_note, daemon=True
+            ).start()
+            invocation.return_value(None)
         elif method == "ShowWindow":
             self.show_window()
             invocation.return_value(None)
@@ -246,6 +253,7 @@ def main():
         ),
         notes=store,
         notifier=notifier,
+        player=player,
     )
     shortcuts = ShortcutManager(config.bin_dir)
     app = TrayDaemon(core, config, store, player, notifier, shortcuts)

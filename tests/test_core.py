@@ -50,15 +50,27 @@ class NotifierFalso:
         self.mensagens.append((titulo, corpo))
 
 
+class PlayerFalso:
+    def __init__(self, erro=None):
+        self.erro = erro
+        self.tocados = []
+
+    def play(self, texto):
+        if self.erro:
+            raise self.erro
+        self.tocados.append(texto)
+
+
 def monta_core(tmp_path, falha_no_start=False, erro_transcricao=None,
-               texto="texto transcrito"):
+               texto="texto transcrito", erro_player=None):
     audio_tmp = tmp_path / "tmp_recording.wav"
     recorder = RecorderFalso(audio_tmp, falha_no_start=falha_no_start)
     transcriber = TranscriberFalso(texto=texto, erro=erro_transcricao)
     notes = SqliteNoteStore(tmp_path / "notes.db", tmp_path / "notes",
                             now=lambda: datetime(2026, 7, 22, 15, 0, 38))
     notifier = NotifierFalso()
-    core = DaemonCore(recorder, transcriber, notes, notifier)
+    core = DaemonCore(recorder, transcriber, notes, notifier,
+                      player=PlayerFalso(erro=erro_player))
     return core, recorder, transcriber, notes, notifier
 
 
@@ -154,6 +166,40 @@ def test_shutdown_aborta_gravacao(tmp_path):
     core.shutdown()
     assert recorder.abortado
     assert core.state is State.IDLE
+
+
+def test_read_current_note_toca_a_mais_recente(tmp_path):
+    momentos = iter([datetime(2026, 7, 22, 10, 0, 0),
+                     datetime(2026, 7, 22, 11, 0, 0)])
+    core, _, _, notes, _ = monta_core(tmp_path)
+    notes._now = lambda: next(momentos)
+    notes.save("nota antiga")
+    notes.save("nota mais recente")
+
+    core.read_current_note()
+
+    assert core._player.tocados == ["nota mais recente"]
+
+
+def test_read_current_note_sem_notas_avisa(tmp_path):
+    core, _, _, _, notifier = monta_core(tmp_path)
+    core.read_current_note()
+    assert notifier.mensagens == [
+        ("TTS", "Nenhuma nota disponível para ler.")
+    ]
+
+
+def test_read_current_note_com_erro_do_player_notifica(tmp_path):
+    from tomenotas.domain.errors import PlayerError
+
+    core, _, _, notes, notifier = monta_core(
+        tmp_path, erro_player=PlayerError("Voz do Piper não encontrada: /x")
+    )
+    notes.save("qualquer")
+    core.read_current_note()
+    assert notifier.mensagens == [
+        ("Erro", "Voz do Piper não encontrada: /x")
+    ]
 
 
 def test_mudancas_de_estado_notificam_o_observador(tmp_path):

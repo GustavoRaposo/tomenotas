@@ -68,7 +68,7 @@ class ShortcutManager:
             ),
             "ler": Action(
                 "ler", "Tomenotas - Ler", "Ler nota atual",
-                str(bin_dir / "ler.sh"), "<Super>t",
+                str(bin_dir / "tomenotas-hotkey-read"), "<Super>t",
             ),
         }
 

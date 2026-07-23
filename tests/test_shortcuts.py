@@ -51,7 +51,7 @@ def test_acoes_apontam_para_os_comandos_certos():
     acoes = manager.acoes
     assert acoes["gravar"].comando == "/home/x/bin/tomenotas-hotkey-record"
     assert acoes["listar"].comando == "/home/x/bin/tomenotas-hotkey-window"
-    assert acoes["ler"].comando == "/home/x/bin/ler.sh"
+    assert acoes["ler"].comando == "/home/x/bin/tomenotas-hotkey-read"
     assert acoes["gravar"].padrao == "<Super>r"
     assert acoes["listar"].padrao == "<Super>l"
     assert acoes["ler"].padrao == "<Super>t"

@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Tomenotas — a personal voice-notes assistant for Ubuntu/GNOME, implemented as a
-Python package (`src/tomenotas/`, the daemon: tray icon + D-Bus + recording)
-plus bash scripts for listing/reading notes, and an installer/uninstaller.
-The Python side is a proper package (pyproject.toml, pytest, 90% coverage gate
-on the core); the bash side remains glue code around system tools. All
+Python package (`src/tomenotas/`: daemon with tray icon, D-Bus, recording,
+notes UI) plus thin bash D-Bus clients for the hotkeys, and an
+installer/uninstaller. The Python side is a proper package (pyproject.toml,
+pytest, 90% coverage gate on the core). All
 comments, `notify-send` messages, and user-facing strings are in Portuguese —
 keep new code consistent with that.
 
@@ -18,9 +18,8 @@ introduce network calls to AI services when extending this project.
 
 ## Architecture
 
-Recording goes through the daemon (Fase 1 of ROADMAP.md); listing/reading are
-still standalone scripts communicating through shared files under
-`~/.local/share/tomenotas/`:
+Everything goes through the daemon — the keybindings are thin D-Bus
+clients that die silently when it isn't running:
 
 - **`src/tomenotas/`** — the daemon package, organized in lightweight
   clean-architecture layers. **Dependency rule (enforced by
@@ -57,14 +56,14 @@ still standalone scripts communicating through shared files under
     a *populated* older-version db and proves nothing is lost; version in
     `PRAGMA user_version`, one transaction per migration, file backup
     (`notes.db.bak-v<n>-<ts>`, last 3 kept) before upgrading. Each note
-    keeps a `.txt` mirror in `notes/` for the legacy scripts, and foreign
+    keeps a `.txt` mirror in `notes/` (plain-text export), and foreign
     `.txt` files are imported at startup. A `MigrationError` at startup
     aborts the daemon with a notification, leaving the db untouched.
   - **`ui/`** — the glue layer (`daemon.py`, `window.py`,
     `settings_page.py`): GTK main loop, `AyatanaAppIndicator3` tray with
     "Abrir"/"Configurações"/"Sair", D-Bus name `com.tomenotas.Daemon` at
     `/com/tomenotas/Daemon` with
-    `ToggleRecording()`/`ShowWindow()`/`ShowSettings()`/`Ping()`,
+    `ToggleRecording()`/`ReadCurrentNote()`/`ShowWindow()`/`ShowSettings()`/`Ping()`,
     threading for slow work (transcription, TTS synthesis), and the
     single main window with a `Gtk.StackSidebar` of three pages: Notas
     (FTS search re-querying the db, tag dropdown, favorite star, tag
@@ -83,53 +82,45 @@ still standalone scripts communicating through shared files under
   `--system-site-packages` venv at `~/.local/share/tomenotas/venv` and
   symlinks `~/bin/tomenotas-daemon`).
 - **`tomenotas-hotkey-record`** (Super+R) / **`tomenotas-hotkey-window`**
-  (Super+L) — thin bash D-Bus clients, the targets of the record/list
-  keybindings. They just call `ToggleRecording()` / `ShowWindow()` via
-  `gdbus`; if the daemon isn't running the call fails silently, so the
-  shortcuts are dead unless the app is open (this is the intended behavior —
-  don't "fix" it by falling back to the legacy scripts).
+  (Super+L) / **`tomenotas-hotkey-read`** (Super+T) — thin bash D-Bus
+  clients, the targets of the keybindings. They just call
+  `ToggleRecording()` / `ShowWindow()` / `ReadCurrentNote()` via `gdbus`;
+  if the daemon isn't running the call fails silently, so the shortcuts
+  are dead unless the app is open (this is the intended behavior — don't
+  "fix" it with local fallbacks).
 - **`tomenotas-open`** — target of the applications-menu launcher
   (`~/.local/share/applications/tomenotas.desktop`, written by
   `install.sh`). Unlike the hotkey clients, it *does* start the daemon if
   it isn't running (waits for the D-Bus name, up to ~5s) before calling
   `ShowWindow()` — opening the app is an explicit user request.
-- **`ler.sh`** (Super+T) — the last legacy bash flow: reads `current_note`
-  (falling back to the most recent note) from the `.txt` mirror and pipes
-  its text through Piper TTS, playing with `paplay`. This is why the
-  mirror exists; retiring it (D-Bus `ReadCurrentNote()` in the daemon) is
-  a backlog item. `gravar.sh`/`listar.sh` were retired — `install.sh`
-  deletes their old copies from `~/bin` on upgrade.
 - **`install.sh`** — installs apt dependencies (including `python3-gi` and
   `gir1.2-ayatanaappindicator3-0.1` for the daemon), clones/builds whisper.cpp and
   downloads a model, downloads the Piper binary + `pt_BR-faber-medium` voice, copies
-  `ler.sh` + the D-Bus clients to `~/bin`, installs the daemon venv, and
-  registers the three keybindings via `gsettings`.
+  the D-Bus clients to `~/bin` (deleting retired legacy scripts —
+  `gravar.sh`/`listar.sh`/`ler.sh` — from old installs), installs the
+  daemon venv, and registers the three keybindings via `gsettings`.
 - **`uninstall.sh`** — reverses `install.sh`; by default keeps notes and the
   whisper.cpp/Piper installs (large downloads), removable via `--purge-notes` /
   `--purge-deps`.
 
-Key invariant: `ler.sh` in this repo is a **template**. `install.sh` copies
-it to `~/bin/` and then patches the `PIPER_BIN`/`PIPER_MODEL` variables in
-the *copy* with `sed`. When editing it, preserve the exact variable
-assignment format the installer's `sed` patterns expect (e.g.
-`^PIPER_BIN=.*`), or update the corresponding `sed` line in `install.sh` to
-match. The Python daemon is **not** sed-patched — it reads
-`~/.config/tomenotas/config.json` (written by `install.sh`) /
-`TOMENOTAS_*` env vars via `infra/config.py`.
+All legacy bash flows are retired — nothing is sed-patched anymore. All
+runtime paths come from `~/.config/tomenotas/config.json` (written by
+`install.sh`) / `TOMENOTAS_*` env vars via `infra/config.py`. The `.txt`
+mirror in `notes/` is kept as a plain-text export of the db (and foreign
+`.txt` files are still imported at startup).
 
 State/data layout (see README "Onde ficam os arquivos" for the authoritative list):
 ```
-~/bin/ler.sh                    # legacy TTS flow, bound to Super+T
 ~/bin/tomenotas-daemon          # symlink into the venv below
 ~/bin/tomenotas-hotkey-record   # D-Bus client bound to Super+R
 ~/bin/tomenotas-hotkey-window   # D-Bus client bound to Super+L
+~/bin/tomenotas-hotkey-read     # D-Bus client bound to Super+T
 ~/bin/tomenotas-open            # app-menu launcher (starts daemon if needed)
 ~/.config/tomenotas/config.json # whisper paths, read by the daemon
 ~/.local/share/tomenotas/
 ├── venv/              # daemon package install (system-site-packages)
 ├── notes.db           # SQLite source of truth (+ notes.db.bak-* backups)
-├── notes/*.txt        # read-only .txt mirror of the db (feeds ler.sh)
-└── current_note       # legacy pointer read by ler.sh (optional)
+└── notes/*.txt        # read-only .txt mirror (plain-text export)
 ~/whisper.cpp/          # whisper.cpp build + model
 ~/piper/                 # Piper binary + voice model
 ```

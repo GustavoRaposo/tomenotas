@@ -8,7 +8,7 @@ thread. Importa apenas domain/ — nunca infra/ ou ui/.
 
 import logging
 
-from ..domain.errors import TranscriptionError
+from ..domain.errors import PlayerError, TranscriptionError
 from ..domain.note import preview
 from ..domain.state import State, ToggleAction
 
@@ -16,11 +16,12 @@ log = logging.getLogger("tomenotas.core")
 
 
 class DaemonCore:
-    def __init__(self, recorder, transcriber, notes, notifier):
+    def __init__(self, recorder, transcriber, notes, notifier, player=None):
         self._recorder = recorder
         self._transcriber = transcriber
         self._notes = notes
         self._notifier = notifier
+        self._player = player  # usado por read_current_note (Super+T)
         self._state = State.IDLE
         # Observador de mudanças de estado (ícone da bandeja).
         # Atenção: finish_recording roda em thread — a cola faz GLib.idle_add.
@@ -82,6 +83,20 @@ class DaemonCore:
         finally:
             self._recorder.audio_tmp.unlink(missing_ok=True)
             self._set_state(State.IDLE)
+
+    def read_current_note(self) -> None:
+        """Lê em voz alta a nota mais recente (Super+T — substitui o
+        ler.sh legado). Síncrono e lento (síntese TTS) — a cola chama
+        numa thread. Mensagens iguais às do ler.sh."""
+        notas = self._notes.list()
+        if not notas:
+            self._notifier.send("TTS", "Nenhuma nota disponível para ler.")
+            return
+        try:
+            self._player.play(notas[0].text)
+        except PlayerError as erro:
+            log.error("leitura falhou: %s", erro)
+            self._notifier.send("Erro", str(erro))
 
     def shutdown(self) -> None:
         """Encerra limpo: aborta gravação pendente sem transcrever."""

@@ -53,7 +53,8 @@ pkill -f "$BIN_DIR/tomenotas-daemon" 2>/dev/null
 echo "==> Removendo scripts de $BIN_DIR..."
 rm -f "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh" "$BIN_DIR/ler.sh" \
       "$BIN_DIR/tomenotas-daemon" "$BIN_DIR/tomenotas-hotkey-record" \
-      "$BIN_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-open"
+      "$BIN_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-read" \
+      "$BIN_DIR/tomenotas-open"
 
 echo "==> Removendo venv do daemon, ícones, autostart e configuração..."
 rm -rf "$DATA_DIR/venv" "$DATA_DIR/icons" "$HOME/.config/tomenotas"

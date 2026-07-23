@@ -27,7 +27,6 @@ salvo.
 | Gravação de áudio | `arecord` (ALSA) |
 | Speech-to-Text | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) |
 | Text-to-Speech | [Piper](https://github.com/rhasspy/piper) (voz `pt_BR-faber-medium`) |
-| Seleção de notas | `zenity` |
 | Notificações | `notify-send` |
 | Reprodução de áudio | `paplay` (PulseAudio/PipeWire) |
 | Daemon / bandeja | Python 3 + PyGObject (GTK3, `AyatanaAppIndicator3`) |
@@ -50,7 +49,7 @@ chmod +x install.sh
 
 O instalador:
 
-1. Instala dependências via `apt`: `zenity`, `alsa-utils`, `libnotify-bin`,
+1. Instala dependências via `apt`: `alsa-utils`, `libnotify-bin`,
    `pulseaudio-utils`, ferramentas de build.
 2. Clona e compila o `whisper.cpp`, baixando o modelo escolhido (padrão:
    `medium`).
@@ -102,7 +101,8 @@ O instalador:
 4. **Super+L** → abre a mesma janela de notas (só funciona com o daemon
    rodando). Atenção: em muitos GNOME, Super+L já bloqueia a tela — se for
    o seu caso, troque a combinação em Configurações.
-5. **Super+T** → ouve a nota selecionada.
+5. **Super+T** → ouve a nota mais recente em voz alta (via daemon —
+   só funciona com ele rodando).
 
 Se algum atalho já estiver em uso por outro programa, ajuste em
 **Configurações → Teclado → Atalhos personalizados**.
@@ -110,10 +110,10 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ## Onde ficam os arquivos
 
 ```
-~/bin/ler.sh                    # fluxo TTS legado, atalho Super+T
 ~/bin/tomenotas-daemon          # daemon (link para o venv abaixo)
 ~/bin/tomenotas-hotkey-record   # cliente D-Bus chamado pelo Super+R
 ~/bin/tomenotas-hotkey-window   # cliente D-Bus chamado pelo Super+L
+~/bin/tomenotas-hotkey-read     # cliente D-Bus chamado pelo Super+T
 ~/bin/tomenotas-open            # lançador: religa o daemon e abre a janela
 ~/.local/share/applications/tomenotas.desktop  # entrada no menu de apps
 ~/.config/tomenotas/config.json # caminhos do whisper/piper (lidos pelo daemon)
@@ -123,8 +123,7 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ├── icons/              # ícones da bandeja (estado)
 ├── daemon.log          # log do daemon (rotativo)
 ├── notes.db            # banco de notas (fonte da verdade; backups .bak-*)
-├── notes/              # espelho .txt das notas (alimenta o ler.sh)
-└── current_note        # ponteiro legado lido pelo ler.sh (opcional)
+└── notes/              # espelho .txt das notas (export em texto puro)
 ~/whisper.cpp/           # binário e modelo do whisper.cpp
 ~/piper/                 # binário e voz do Piper
 ```

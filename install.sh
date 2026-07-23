@@ -42,7 +42,7 @@ PIPER_DIR="$HOME/piper"
 if [ "$SKIP_APT" -eq 0 ]; then
     echo "==> Instalando dependências do sistema (apt)..."
     sudo apt update
-    sudo apt install -y zenity alsa-utils libnotify-bin git cmake build-essential wget unzip curl pulseaudio-utils \
+    sudo apt install -y alsa-utils libnotify-bin git cmake build-essential wget unzip curl pulseaudio-utils \
         python3-venv python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1
 else
     echo "==> Pulando apt (--skip-apt). Certifique-se de que as dependências já estão instaladas."
@@ -52,15 +52,15 @@ echo "==> Criando diretórios..."
 mkdir -p "$BIN_DIR" "$NOTES_DIR"
 
 echo "==> Copiando scripts para $BIN_DIR..."
-cp "$SCRIPT_DIR/ler.sh" "$BIN_DIR/ler.sh"
 cp "$SCRIPT_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-record"
 cp "$SCRIPT_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-window"
+cp "$SCRIPT_DIR/tomenotas-hotkey-read" "$BIN_DIR/tomenotas-hotkey-read"
 cp "$SCRIPT_DIR/tomenotas-open" "$BIN_DIR/tomenotas-open"
-chmod +x "$BIN_DIR/ler.sh" \
-    "$BIN_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-window" \
+chmod +x "$BIN_DIR/tomenotas-hotkey-record" \
+    "$BIN_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-read" \
     "$BIN_DIR/tomenotas-open"
 # limpa scripts legados de instalações anteriores (aposentados)
-rm -f "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh"
+rm -f "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh" "$BIN_DIR/ler.sh"
 
 echo "==> Instalando o daemon (pacote Python em venv)..."
 VENV_DIR="$DATA_DIR/venv"
@@ -162,11 +162,8 @@ if [ "$SKIP_PIPER" -eq 0 ]; then
         wget -q -O "$VOICE_MODEL.json" "$BASE_URL/pt_BR-faber-medium.onnx.json"
     fi
 
-    echo "==> Ajustando caminhos do Piper em ler.sh..."
-    sed -i "s|^PIPER_BIN=.*|PIPER_BIN=\"$PIPER_DIR/piper\"|" "$BIN_DIR/ler.sh"
-    sed -i "s|^PIPER_MODEL=.*|PIPER_MODEL=\"$VOICE_MODEL\"|" "$BIN_DIR/ler.sh"
 else
-    echo "==> Pulando instalação do Piper (--skip-piper). Ajuste PIPER_BIN e PIPER_MODEL manualmente em $BIN_DIR/ler.sh"
+    echo "==> Pulando instalação do Piper (--skip-piper). Ajuste os caminhos em ~/.config/tomenotas/config.json"
 fi
 
 # O daemon lê os caminhos de ~/.config/tomenotas/config.json (nada de sed)
@@ -216,8 +213,10 @@ if [ "$SKIP_SHORTCUTS" -eq 0 ]; then
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LISTAR" command "$BIN_DIR/tomenotas-hotkey-window"
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LISTAR" binding '<Super>l'
 
+    # O atalho de ler chama o daemon via D-Bus — como os demais, só
+    # funciona enquanto o tomenotas-daemon estiver rodando.
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LER" name 'Tomenotas - Ler'
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LER" command "$BIN_DIR/ler.sh"
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LER" command "$BIN_DIR/tomenotas-hotkey-read"
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LER" binding '<Super>t'
 
     echo "==> Atalhos configurados. Se algum já estiver em uso por outro app, mude em:"
