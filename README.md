@@ -90,7 +90,9 @@ O instalador:
      relevância), dropdown de **tags** (lista as existentes no banco),
      filtro **★ Favoritos** e por período (hoje/7/30 dias). Por nota:
      ★ favorita, 🏷 gerencia tags, ▶ ouve (vira ⏸ enquanto toca) e
-     🗑 apaga.
+     🗑 apaga. **Clicar na nota** abre o detalhe: conteúdo completo
+     editável, com ★/🏷/▶/🗑 — "Salvar" grava a edição e volta pra
+     lista (a seta ← volta sem salvar).
    - **Tags**: criar, listar (com nº de notas), renomear (unindo com a
      existente se o nome coincidir) e apagar tags — apagar uma tag nunca
      apaga as notas.

@@ -79,6 +79,27 @@ class SqliteNoteStore:
             if nota.filename:
                 (self.notes_dir / nota.filename).unlink(missing_ok=True)
 
+    def update_text(self, nota_id: int, novo_texto: str) -> DbNote | None:
+        """Edita o texto da nota (banco + índice FTS via trigger + espelho
+        .txt). Devolve a nota atualizada, ou None se o id não existe."""
+        if not novo_texto.strip():
+            raise ValueError("o texto da nota não pode ser vazio")
+        with self._lock:
+            linha = self._conn.execute(
+                "SELECT filename FROM notes WHERE id = ?", (nota_id,)
+            ).fetchone()
+            if linha is None:
+                return None
+            self._conn.execute(
+                "UPDATE notes SET text = ? WHERE id = ?",
+                (novo_texto, nota_id),
+            )
+            if linha[0]:
+                (self.notes_dir / linha[0]).write_text(
+                    novo_texto, encoding="utf-8"
+                )
+            return self._nota(nota_id)
+
     # ---------------- favoritos e tags ----------------
 
     def set_favorite(self, nota_id: int, valor: bool) -> None:

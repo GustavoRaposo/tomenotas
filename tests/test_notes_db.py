@@ -130,6 +130,41 @@ def test_txt_com_nome_fora_do_padrao_usa_mtime(tmp_path):
     assert nota.created_at  # derivado do mtime, mas presente
 
 
+# ---------------- edição de texto ----------------
+
+def test_update_text_altera_banco_e_espelho(tmp_path):
+    store = monta(tmp_path)
+    nota = store.save("texto original")
+    atualizada = store.update_text(nota.id, "texto corrigido")
+    assert atualizada.text == "texto corrigido"
+    assert store.list()[0].text == "texto corrigido"
+    espelho = tmp_path / "notes" / f"{nota.title}.txt"
+    assert espelho.read_text(encoding="utf-8") == "texto corrigido"
+
+
+def test_update_text_reindexa_a_busca(tmp_path):
+    store = monta(tmp_path)
+    nota = store.save("palavra antiga")
+    store.update_text(nota.id, "palavra novidade")
+    assert store.search(texto="novidade") != []
+    assert store.search(texto="antiga") == []
+
+
+def test_update_text_vazio_levanta_erro(tmp_path):
+    import pytest
+
+    store = monta(tmp_path)
+    nota = store.save("conteúdo")
+    with pytest.raises(ValueError):
+        store.update_text(nota.id, "   \n")
+    assert store.list()[0].text == "conteúdo"  # nada mudou
+
+
+def test_update_text_de_nota_inexistente_e_ignorado(tmp_path):
+    store = monta(tmp_path)
+    assert store.update_text(999, "novo") is None
+
+
 # ---------------- favoritos ----------------
 
 def test_favoritar_e_desfavoritar(tmp_path):

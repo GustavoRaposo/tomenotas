@@ -149,6 +149,8 @@ na bandeja, sem abrir a janela.
 - [x] UI de filtros/tags/favoritos na janela de notas: busca FTS com
       ranking, chips de tags (interseção), estrela de favorito por nota,
       popover de tags (marcar/desmarcar/criar) e filtro de período
+- [x] Tela de detalhe da nota (clicar numa nota): conteúdo completo
+      editável, favoritar, taguear, tocar e apagar; salvar retorna à lista
 - [x] Sidebar na janela principal com seções Notas / Tags / Configurações:
       CRUD completo de tags (criar, listar com contagem, renomear com
       merge, apagar) e a tela de atalhos embutida (a janela separada de

@@ -68,9 +68,12 @@ still standalone scripts communicating through shared files under
     threading for slow work (transcription, TTS synthesis), and the
     single main window with a `Gtk.StackSidebar` of three pages: Notas
     (FTS search re-querying the db, tag dropdown, favorite star, tag
-    popover, period combo, play/pause, delete), Tags (CRUD with merge
-    warning) and Configurações (`SettingsPage`, embedded — the window
-    forwards key-press-event to its `handle_key`). Window close hides —
+    popover, period combo, play/pause, delete; activating a row slides
+    to an internal detail view — editable TextView backed by
+    `store.update_text`, star/tags/play/delete actions, Salvar returns
+    to the list), Tags (CRUD with merge warning) and Configurações
+    (`SettingsPage`, embedded — the window forwards key-press-event to
+    its `handle_key`). Window close hides —
     the daemon stays in the tray. Deliberately thin and dumb: only builds
     widgets and delegates to the tested core. The whole layer is
     **excluded from coverage** (pyproject omit) — keep new behavior out

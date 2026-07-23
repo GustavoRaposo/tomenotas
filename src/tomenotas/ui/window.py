@@ -109,6 +109,16 @@ class NotesWindow(Gtk.Window):
     # ================= Página: Notas =================
 
     def _monta_pagina_notas(self):
+        """Stack interno: 'lista' (busca + filtros + notas) ⇄ 'detalhe'
+        (conteúdo completo, editável). O sidebar não enxerga o detalhe."""
+        self._stack_notas = Gtk.Stack(
+            transition_type=Gtk.StackTransitionType.SLIDE_LEFT_RIGHT
+        )
+        self._stack_notas.add_named(self._monta_lista_notas(), "lista")
+        self._stack_notas.add_named(self._monta_detalhe(), "detalhe")
+        return self._stack_notas
+
+    def _monta_lista_notas(self):
         caixa = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
                         margin=12)
 
@@ -146,9 +156,138 @@ class NotesWindow(Gtk.Window):
 
         self._lista = Gtk.ListBox()
         self._lista.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._lista.connect("row-activated", self._on_nota_ativada)
         rolagem.add(self._lista)
 
         return caixa
+
+    # ---------------- Detalhe (ver/editar uma nota) ----------------
+
+    def _monta_detalhe(self):
+        caixa = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
+                        margin=12)
+        self._nota_atual = None
+
+        barra = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        caixa.pack_start(barra, False, False, 0)
+
+        voltar = Gtk.Button.new_from_icon_name(
+            "go-previous-symbolic", Gtk.IconSize.BUTTON
+        )
+        voltar.set_tooltip_text("Voltar sem salvar")
+        voltar.connect("clicked", lambda *_: self._voltar_detalhe())
+        barra.pack_start(voltar, False, False, 0)
+
+        self._detalhe_titulo = Gtk.Label(xalign=0)
+        self._detalhe_titulo.get_style_context().add_class("dim-label")
+        barra.pack_start(self._detalhe_titulo, True, True, 0)
+
+        self._detalhe_estrela = Gtk.ToggleButton()
+        self._id_estrela = self._detalhe_estrela.connect(
+            "toggled", self._on_favoritar_detalhe
+        )
+        barra.pack_start(self._detalhe_estrela, False, False, 0)
+
+        self._detalhe_tags = Gtk.MenuButton(label="🏷")
+        self._detalhe_tags.set_tooltip_text("Tags desta nota")
+        barra.pack_start(self._detalhe_tags, False, False, 0)
+
+        tocar = Gtk.Button.new_from_icon_name(
+            "media-playback-start-symbolic", Gtk.IconSize.BUTTON
+        )
+        tocar.set_tooltip_text("Tocar o texto exibido")
+        tocar.connect("clicked", self._on_tocar_detalhe)
+        barra.pack_start(tocar, False, False, 0)
+
+        apagar = Gtk.Button.new_from_icon_name(
+            "user-trash-symbolic", Gtk.IconSize.BUTTON
+        )
+        apagar.set_tooltip_text("Apagar esta nota")
+        apagar.connect("clicked", self._on_apagar_detalhe)
+        barra.pack_start(apagar, False, False, 0)
+
+        rolagem = Gtk.ScrolledWindow()
+        rolagem.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        caixa.pack_start(rolagem, True, True, 0)
+
+        self._editor = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR)
+        self._editor.set_top_margin(8)
+        self._editor.set_left_margin(8)
+        self._editor.set_right_margin(8)
+        rolagem.add(self._editor)
+
+        salvar = Gtk.Button(label="Salvar")
+        salvar.get_style_context().add_class("suggested-action")
+        salvar.connect("clicked", self._on_salvar_detalhe)
+        caixa.pack_start(salvar, False, False, 0)
+
+        return caixa
+
+    def _on_nota_ativada(self, _lista, linha):
+        nota = getattr(linha, "note", None)
+        if nota is not None:
+            self._abre_detalhe(nota)
+
+    def _abre_detalhe(self, nota):
+        self._parar_reproducao()
+        self._nota_atual = nota
+        self._detalhe_titulo.set_text(nota.title)
+        self._editor.get_buffer().set_text(nota.text)
+        # set_active sem disparar o handler de toggle
+        self._detalhe_estrela.handler_block(self._id_estrela)
+        self._detalhe_estrela.set_active(nota.favorite)
+        self._detalhe_estrela.handler_unblock(self._id_estrela)
+        self._pinta_estrela(self._detalhe_estrela, nota.favorite)
+        self._detalhe_tags.set_popover(
+            self._monta_popover_tags(nota, self._detalhe_tags)
+        )
+        self._stack_notas.set_visible_child_name("detalhe")
+
+    def _texto_do_editor(self):
+        buffer = self._editor.get_buffer()
+        inicio, fim = buffer.get_bounds()
+        return buffer.get_text(inicio, fim, True)
+
+    def _on_salvar_detalhe(self, _botao):
+        if self._nota_atual is None:
+            return
+        try:
+            self._store.update_text(self._nota_atual.id,
+                                    self._texto_do_editor())
+        except ValueError as erro:
+            self._notifier.send("Erro", str(erro))
+            return
+        self._voltar_detalhe()
+
+    def _voltar_detalhe(self):
+        self._parar_reproducao()
+        self._nota_atual = None
+        self._stack_notas.set_visible_child_name("lista")
+        self.refresh()
+
+    def _on_favoritar_detalhe(self, botao):
+        if self._nota_atual is None:
+            return
+        self._store.set_favorite(self._nota_atual.id, botao.get_active())
+        self._pinta_estrela(botao, botao.get_active())
+
+    def _on_tocar_detalhe(self, botao):
+        self._parar_reproducao()
+        botao.set_sensitive(False)
+        threading.Thread(
+            target=self._tocar_worker,
+            args=(botao, self._texto_do_editor()),
+            daemon=True,
+        ).start()
+
+    def _on_apagar_detalhe(self, _botao):
+        nota = self._nota_atual
+        if nota is None:
+            return
+        if self._confirma(f"Apagar a nota {nota.title}?",
+                          preview(nota.text)):
+            self._store.delete(nota)
+            self._voltar_detalhe()
 
     def _reconstroi_dropdown_tags(self):
         """Repovoa o dropdown com as tags do banco, preservando a seleção
@@ -469,12 +608,12 @@ class NotesWindow(Gtk.Window):
         botao.set_sensitive(False)  # até a síntese terminar
         # A síntese do Piper bloqueia — roda numa thread, como a transcrição
         threading.Thread(
-            target=self._tocar_worker, args=(botao, nota), daemon=True
+            target=self._tocar_worker, args=(botao, nota.text), daemon=True
         ).start()
 
-    def _tocar_worker(self, botao, nota):
+    def _tocar_worker(self, botao, texto):
         try:
-            self._player.play(nota.text)
+            self._player.play(texto)
         except PlayerError as erro:
             GLib.idle_add(self._on_erro_reproducao, botao, str(erro))
         else:
