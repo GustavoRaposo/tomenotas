@@ -71,10 +71,15 @@ clients that die silently when it isn't running:
     `MIGRATIONS`** (never edit a published one) plus a test that migrates
     a *populated* older-version db and proves nothing is lost; version in
     `PRAGMA user_version`, one transaction per migration, file backup
-    (`notes.db.bak-v<n>-<ts>`, last 3 kept) before upgrading. Each note
-    keeps a `.txt` mirror in `notes/` (plain-text export), and foreign
-    `.txt` files are imported at startup. A `MigrationError` at startup
-    aborts the daemon with a notification, leaving the db untouched.
+    (`notes.db.bak-v<n>-<ts>`, last 3 kept) before upgrading. The `.txt`
+    mirror is **opt-in** (default off; toggle + directory in
+    Configurações, persisted as `mirror_enabled`/`mirror_dir` in
+    config.json): when on, saves/edits write a plain-text export.
+    Regardless of the flag, foreign `.txt` files in the mirror dir are
+    imported at startup and deleting a note removes its mirror file
+    (otherwise the import would resurrect it). A `MigrationError` at
+    startup aborts the daemon with a notification, leaving the db
+    untouched.
   - **`ui/`** — the glue layer (`daemon.py`, `window.py`,
     `settings_page.py`): GTK main loop, `AyatanaAppIndicator3` tray with
     "Abrir"/"Configurações"/"Sair", D-Bus name `com.tomenotas.Daemon` at
@@ -89,9 +94,10 @@ clients that die silently when it isn't running:
     to the list), Tags (CRUD with merge warning) and Configurações
     (`SettingsPage`, embedded — the window forwards key-press-event to
     its `handle_key`; sections: Atalhos, Voz (Piper voice dropdown backed
-    by `VoiceManager` + first-run default-voice download) and Modelo de
+    by `VoiceManager` + first-run default-voice download), Modelo de
     transcrição (whisper size download/switch backed by `ModelManager`,
-    with progress bars). Window close hides —
+    with progress bars) and Espelho .txt (switch + folder chooser + "?"
+    help, delegating to `store.set_mirror` and `update_config_file`). Window close hides —
     the daemon stays in the tray. Deliberately thin and dumb: only builds
     widgets and delegates to the tested core. The whole layer is
     **excluded from coverage** (pyproject omit) — keep new behavior out
@@ -140,8 +146,8 @@ clients that die silently when it isn't running:
 All legacy bash flows are retired — nothing is sed-patched anymore. All
 runtime paths come from `~/.config/tomenotas/config.json` (written by
 `install.sh`) / `TOMENOTAS_*` env vars via `infra/config.py`. The `.txt`
-mirror in `notes/` is kept as a plain-text export of the db (and foreign
-`.txt` files are still imported at startup).
+mirror is an opt-in plain-text export of the db, off by default (foreign
+`.txt` files are still imported at startup either way).
 
 State/data layout (see README "Onde ficam os arquivos" for the authoritative list):
 ```
@@ -154,7 +160,7 @@ State/data layout (see README "Onde ficam os arquivos" for the authoritative lis
 ~/.local/share/tomenotas/
 ├── venv/              # daemon package install (system-site-packages)
 ├── notes.db           # SQLite source of truth (+ notes.db.bak-* backups)
-└── notes/*.txt        # read-only .txt mirror (plain-text export)
+└── notes/*.txt        # opt-in .txt mirror (plain-text export, off by default)
 ~/whisper.cpp/          # whisper.cpp build + model
 ~/piper/                 # Piper binary + voice model
 ```
@@ -190,9 +196,13 @@ copies have placeholder paths.
 
 ## Roadmap context
 
-See `ROADMAP.md` for the v2 plan. All fases (0–5) are done: bash scripts;
-daemon skeleton with tray + D-Bus; GTK notes window; settings window for
-hotkeys; state-reflecting tray icons with pulse; autostart + structured
-logging + specific error messages. Remaining ideas (SQLite storage, note
-export/editing, multiple voices, `.deb` packaging, GlobalShortcuts portal)
-live in the ROADMAP backlog — none of those exist yet.
+`ROADMAP.md` (local-only, gitignored) lists **only what has not been
+worked on yet** — delivered work lives in git history and releases
+(v1.0.0, 2026-07-23). Open backlog: GTK4/libadwaita migration (tray
+becomes a GTK3 satellite process), note export, reviewing the
+transcription before saving, the honey-note rename (with data
+migration), and .deb refinements (formal debian/, arm64). It also
+records product decisions not to reopen: hotkeys are configured
+in-app (GlobalShortcuts portal evaluated and rejected), the .deb is
+the single user-facing install route, and the `gravar`/`listar`/`ler`
+action ids are persisted user state — never rename them.

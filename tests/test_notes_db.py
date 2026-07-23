@@ -9,8 +9,11 @@ from tomenotas.infra.notes_db import SqliteNoteStore
 CLOCK = lambda: datetime(2026, 7, 23, 15, 0, 38)  # noqa: E731
 
 
-def make(tmp_path, now=CLOCK):
-    return SqliteNoteStore(tmp_path / "notes.db", tmp_path / "notes", now=now)
+def make(tmp_path, now=CLOCK, mirror=True):
+    # most tests below exercise the mirror behavior, so the helper turns
+    # it on; the class default is mirror=False (see the mirror section)
+    return SqliteNoteStore(tmp_path / "notes.db", tmp_path / "notes",
+                           now=now, mirror=mirror)
 
 
 # ---------------- save / list / delete ----------------
@@ -86,6 +89,67 @@ def test_matches_compatibility_with_the_window_filter(tmp_path):
     assert note.matches("2026-07-23")  # also searches the title
     assert note.matches("")
     assert not note.matches("leite")
+
+
+# ---------------- mirror on/off (default: off) ----------------
+
+def test_mirror_disabled_by_default_saves_only_to_the_db(tmp_path):
+    store = SqliteNoteStore(tmp_path / "notes.db", tmp_path / "notes",
+                            now=CLOCK)
+    note = store.save("só no banco")
+    assert note.text == "só no banco"
+    assert note.filename is None  # no file backs this note
+    assert note.title == "2026-07-23 15:00:38"  # falls back to created_at
+    assert not (tmp_path / "notes").exists()  # nothing written
+
+
+def test_import_still_works_with_mirror_disabled(tmp_path):
+    notes_dir = tmp_path / "notes"
+    notes_dir.mkdir(parents=True)
+    (notes_dir / "2026-07-20_08-30-00.txt").write_text("de fora",
+                                                       encoding="utf-8")
+    store = make(tmp_path, mirror=False)
+    (note,) = store.list()
+    assert note.text == "de fora"
+
+
+def test_delete_removes_stale_mirror_even_when_disabled(tmp_path):
+    # note saved while the mirror was on; later the mirror is disabled.
+    # Deleting must still remove the file — otherwise the next startup
+    # would re-import it and the note would resurrect.
+    store = make(tmp_path, mirror=True)
+    note = store.save("apagável")
+    store.close()
+
+    store2 = make(tmp_path, mirror=False)
+    (note,) = store2.list()
+    store2.delete(note)
+    assert not (tmp_path / "notes" / f"{note.title}.txt").exists()
+    store2.close()
+    assert make(tmp_path, mirror=False).list() == []  # no resurrection
+
+
+def test_update_with_mirror_disabled_keeps_db_and_skips_file(tmp_path):
+    store = make(tmp_path, mirror=True)
+    note = store.save("original")
+    store.set_mirror(False)
+    store.update_text(note.id, "editado")
+    assert store.list()[0].text == "editado"
+    mirror = tmp_path / "notes" / f"{note.title}.txt"
+    assert mirror.read_text(encoding="utf-8") == "original"  # stale, kept
+
+
+def test_set_mirror_enables_and_redirects_the_directory(tmp_path):
+    store = make(tmp_path, mirror=False)
+    store.save("antes")  # not mirrored
+    other = tmp_path / "espelho"
+
+    store.set_mirror(True, other)
+    note = store.save("depois")
+
+    assert (other / f"{note.title}.txt").read_text(
+        encoding="utf-8") == "depois"
+    assert not (tmp_path / "notes").exists()  # old dir untouched
 
 
 # ---------------- .txt import ----------------

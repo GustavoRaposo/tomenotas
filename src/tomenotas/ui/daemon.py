@@ -160,7 +160,8 @@ class TrayDaemon:
         if self._window is None:
             self._window = NotesWindow(self._store, self._player,
                                        self._notifier, self._shortcuts,
-                                       self._voices, self._models)
+                                       self._voices, self._models,
+                                       self._config)
         self._window.show_page(page)
 
     def on_settings(self, _item):
@@ -244,7 +245,8 @@ def main():
     log.info("daemon starting (tomenotas %s)", __version__)
     notifier = Notifier()
     try:
-        store = SqliteNoteStore(config.db_path, config.notes_dir)
+        store = SqliteNoteStore(config.db_path, config.mirror_dir,
+                                mirror=config.mirror_enabled)
     except MigrationError as error:
         # Database intact at the previous version (rollback + backup) —
         # warn and refuse to start rather than run with an incompatible

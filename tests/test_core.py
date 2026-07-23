@@ -146,8 +146,9 @@ def test_finish_saves_note_and_returns_to_idle(tmp_path):
 
     assert recorder.stopped
     assert transcriber.transcribed == [recorder.audio_tmp]
-    note = notes.notes_dir / "2026-07-22_15-00-38.txt"
-    assert note.read_text(encoding="utf-8") == "conteúdo da nota gravada"
+    (note,) = notes.list()
+    assert note.text == "conteúdo da nota gravada"
+    assert note.created_at == "2026-07-22T15:00:38"
     assert notifier.messages[-1] == ("Nota criada", "conteúdo da nota gravada")
     assert not recorder.audio_tmp.exists()  # temp .wav removed
     assert core.state is State.IDLE

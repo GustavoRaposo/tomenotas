@@ -36,6 +36,9 @@ class Config:
     base_dir: Path = Path.home() / ".local/share/tomenotas"
     bin_dir: Path | None = None
     language: str = "pt"
+    # .txt mirror of the notes: opt-in plain-text export (see notes_db)
+    mirror_enabled: bool = False
+    mirror_dir: Path | None = None  # None → notes_dir in __post_init__
 
     def __post_init__(self):
         if self.whisper_bin is None:
@@ -60,6 +63,8 @@ class Config:
         if self.piper_model is None:
             object.__setattr__(self, "piper_model",
                                self.models_dir / "pt_BR-faber-medium.onnx")
+        if self.mirror_dir is None:
+            object.__setattr__(self, "mirror_dir", self.notes_dir)
 
     @property
     def models_dir(self) -> Path:
@@ -129,10 +134,13 @@ class Config:
             language=os.environ.get("TOMENOTAS_LANGUAGE")
             or data.get("language")
             or default.language,
+            mirror_enabled=bool(data.get("mirror_enabled", False)),
+            mirror_dir=path_for("mirror_dir", "TOMENOTAS_MIRROR_DIR", None),
         )
 
 
-def update_config_file(key: str, value: str, path: Path | None = None) -> None:
+def update_config_file(key: str, value: str | bool,
+                       path: Path | None = None) -> None:
     """Sets a single key in config.json, preserving the other keys
     (creating the file if needed). Invalid content is rewritten with a
     warning — the same tolerance Config.load has when reading."""

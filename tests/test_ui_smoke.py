@@ -30,6 +30,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def window(tmp_path):
+    from tomenotas.infra.config import Config
     from tomenotas.infra.downloads import Downloader, ModelManager
     from tomenotas.infra.notes_db import SqliteNoteStore
     from tomenotas.infra.notify import Notifier
@@ -53,6 +54,7 @@ def window(tmp_path):
         ModelManager(transcriber, Path("/x/ggml-medium.bin"),
                      tmp_path / "models", Downloader(),
                      config_path=tmp_path / "config.json"),
+        Config(base_dir=tmp_path / "dados"),
     )
     window.refresh()
     # makes the stack children "visible" without mapping the window

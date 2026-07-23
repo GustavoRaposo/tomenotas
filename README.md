@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 
 Assistente pessoal simples para Ubuntu: grave notas de voz com um atalho de
 teclado, transcreva automaticamente para texto (offline, sem IA/LLM) e ouça
@@ -59,7 +59,7 @@ sua máquina. Baixe o `.deb` mais recente na
 e instale:
 
 ```bash
-sudo apt install ./tomenotas_1.0.0_amd64.deb
+sudo apt install ./tomenotas_1.1.0_amd64.deb
 ```
 
 O `apt` resolve as dependências declaradas no pacote. Na primeira vez que
@@ -79,7 +79,7 @@ Se você clonou o repositório em vez de baixar um `.deb` pronto:
 
 ```bash
 ./packaging/build-deb.sh    # requer git, cmake, build-essential e wget
-sudo apt install ./dist/tomenotas_1.0.0_amd64.deb
+sudo apt install ./dist/tomenotas_1.1.0_amd64.deb
 ```
 
 O script compila um `whisper-cli` estático (whisper.cpp v1.9.1, sem
@@ -147,24 +147,17 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ├── models/             # modelo whisper + voz Piper (baixados no 1º uso)
 ├── daemon.log          # log do daemon (rotativo)
 ├── notes.db            # banco de notas (fonte da verdade; backups .bak-*)
-└── notes/              # espelho .txt das notas (export em texto puro)
+└── notes/              # espelho .txt (opcional, desativado por padrão —
+                        #   ative e escolha o diretório em Configurações)
 ```
 
 ## Apagar notas e áudios
 
 Os áudios (`.wav`) já são apagados automaticamente logo após cada
-transcrição. As notas de texto **não** são apagadas sozinhas.
-
-```bash
-# apagar uma nota específica
-rm ~/.local/share/tomenotas/notes/2026-07-22_15-00-38.txt
-
-# apagar todas as notas
-rm ~/.local/share/tomenotas/notes/*.txt
-
-# apagar notas com mais de 30 dias
-find ~/.local/share/tomenotas/notes/ -name "*.txt" -mtime +30 -delete
-```
+transcrição. Notas são apagadas **pela interface** (🗑 na lista ou no
+detalhe) — o banco `notes.db` é a fonte da verdade, então apagar um
+`.txt` do espelho **não** remove a nota (e, com o espelho ativado, o
+inverso sim: apagar a nota pela UI remove também o seu `.txt`).
 
 ## Desinstalação
 

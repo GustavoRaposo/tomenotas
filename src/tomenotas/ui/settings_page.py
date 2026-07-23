@@ -23,6 +23,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from ..domain.errors import DownloadError  # noqa: E402
+from ..infra.config import update_config_file  # noqa: E402
 from ..infra.downloads import WHISPER_MODELS  # noqa: E402
 
 
@@ -30,12 +31,14 @@ class SettingsPage(Gtk.Box):
     """The main window forwards key-press-event to handle_key() while
     this page is visible."""
 
-    def __init__(self, manager, voices, models, notifier, window):
+    def __init__(self, manager, voices, models, store, config, notifier,
+                 window):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8,
                          margin=16)
         self._manager = manager
         self._voices = voices
         self._models = models
+        self._store = store
         self._notifier = notifier
         self._window = window  # parent of the conflict dialogs
         self._capturing = None  # (action_id, button) while capturing
@@ -133,6 +136,38 @@ class SettingsPage(Gtk.Box):
         model_hint.set_line_wrap(True)
         model_hint.set_xalign(0)
         self.pack_start(model_hint, False, False, 0)
+
+        # ---------------- Section: Espelho .txt ----------------
+
+        self.pack_start(self._section_label("Espelho .txt"), False, False, 8)
+
+        mirror_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                             spacing=12)
+        mirror_row.pack_start(
+            Gtk.Label(label="Salvar espelho das notas em .txt", xalign=0),
+            False, False, 0,
+        )
+        self._mirror_switch = Gtk.Switch(active=config.mirror_enabled)
+        self._mirror_switch.set_valign(Gtk.Align.CENTER)
+        self._mirror_switch.connect("notify::active",
+                                    self._on_mirror_toggle)
+        mirror_row.pack_start(self._mirror_switch, False, False, 0)
+
+        self._mirror_dir_button = Gtk.FileChooserButton(
+            title="Diretório do espelho",
+            action=Gtk.FileChooserAction.SELECT_FOLDER,
+        )
+        self._mirror_dir_button.set_hexpand(True)
+        self._mirror_dir_button.set_filename(str(config.mirror_dir))
+        self._mirror_dir_button.set_sensitive(config.mirror_enabled)
+        self._mirror_dir_button.connect("file-set", self._on_mirror_dir)
+        mirror_row.pack_start(self._mirror_dir_button, True, True, 0)
+
+        mirror_help = Gtk.Button(label="?")
+        mirror_help.set_tooltip_text("O que é o espelho .txt")
+        mirror_help.connect("clicked", self._on_mirror_help)
+        mirror_row.pack_start(mirror_help, False, False, 0)
+        self.pack_start(mirror_row, False, False, 0)
 
     @staticmethod
     def _section_label(text):
@@ -251,6 +286,49 @@ class SettingsPage(Gtk.Box):
             GLib.idle_add(self._on_download_done, self._model_progress,
                           self._model_button, "Modelo baixado",
                           f"Modelo {size} baixado e ativado.")
+
+    # ---------------- .txt mirror ----------------
+
+    def _on_mirror_toggle(self, switch, _pspec):
+        enabled = switch.get_active()
+        self._mirror_dir_button.set_sensitive(enabled)
+        self._store.set_mirror(enabled, self._mirror_dir_button.get_filename())
+        update_config_file("mirror_enabled", enabled)
+        self._notifier.send(
+            "Espelho .txt",
+            "Espelho ativado: novas notas geram arquivos .txt."
+            if enabled else "Espelho desativado.",
+        )
+
+    def _on_mirror_dir(self, button):
+        path = button.get_filename()
+        if not path:
+            return
+        self._store.set_mirror(self._mirror_switch.get_active(), path)
+        update_config_file("mirror_dir", path)
+        self._notifier.send("Espelho .txt", f"Diretório: {path}")
+
+    def _on_mirror_help(self, _button):
+        dialog = Gtk.MessageDialog(
+            transient_for=self._window,
+            modal=True,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text="O que é o espelho .txt",
+        )
+        dialog.format_secondary_text(
+            "Com o espelho ativado, cada nota gravada ou criada passa a "
+            "gerar também um arquivo .txt no diretório escolhido — um "
+            "export em texto puro, legível sem o Tomenotas.\n\n"
+            "Importante: o espelho apenas CRIA os arquivos. A edição de "
+            "uma nota é feita pela interface do Tomenotas — alterar o "
+            ".txt por fora não muda a nota.\n\n"
+            "Arquivos .txt novos colocados no diretório são importados "
+            "como notas na próxima abertura do app, e apagar uma nota "
+            "apaga também o seu .txt."
+        )
+        dialog.run()
+        dialog.destroy()
 
     # ---------------- Download plumbing ----------------
 

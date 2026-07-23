@@ -1,9 +1,12 @@
 """SQLite note storage: FTS5 search, tags, favorites (v3).
 
 The database (~/.local/share/tomenotas/notes.db) is the source of truth.
-ROADMAP decision implemented as a mirror: each note keeps a .txt in
-notes/ as a plain-text export, and .txt files created outside the daemon
-are imported on the next startup.
+The .txt mirror is an **opt-in plain-text export** (mirror=False by
+default, configurable in Configurações): when enabled, each saved note
+writes a .txt into notes_dir. Editing is always done through the UI —
+the mirror is one-way. Regardless of the flag, .txt files dropped into
+notes_dir are imported on the next startup, and deleting a note removes
+its mirror file if one exists (otherwise the import would resurrect it).
 
 Same contract as the old file-based NoteStore (save/list/delete +
 Note.matches) plus favorites, tags and search() with combinable filters.
@@ -25,8 +28,10 @@ _STEM_TS = re.compile(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})")
 
 
 class SqliteNoteStore:
-    def __init__(self, db_path, notes_dir: Path, now=datetime.now):
+    def __init__(self, db_path, notes_dir: Path, now=datetime.now,
+                 mirror: bool = False):
         self.notes_dir = Path(notes_dir)
+        self._mirror = bool(mirror)
         self._now = now
         # save() runs on the transcription thread; the rest on the main one
         self._lock = threading.Lock()
@@ -52,16 +57,26 @@ class SqliteNoteStore:
 
     # ---------------- basic contract (core/window) ----------------
 
+    def set_mirror(self, enabled: bool, mirror_dir=None) -> None:
+        """Turns the .txt mirror on/off at runtime and optionally moves
+        it to another directory (existing files stay where they are)."""
+        with self._lock:
+            self._mirror = bool(enabled)
+            if mirror_dir is not None:
+                self.notes_dir = Path(mirror_dir)
+
     def save(self, text: str) -> DbNote:
         with self._lock:
             now = self._now()
-            self.notes_dir.mkdir(parents=True, exist_ok=True)
-            base = now.strftime("%Y-%m-%d_%H-%M-%S")
-            name, counter = f"{base}.txt", 2
-            while (self.notes_dir / name).exists():
-                name = f"{base}-{counter}.txt"
-                counter += 1
-            (self.notes_dir / name).write_text(text, encoding="utf-8")
+            name = None
+            if self._mirror:
+                self.notes_dir.mkdir(parents=True, exist_ok=True)
+                base = now.strftime("%Y-%m-%d_%H-%M-%S")
+                name, counter = f"{base}.txt", 2
+                while (self.notes_dir / name).exists():
+                    name = f"{base}-{counter}.txt"
+                    counter += 1
+                (self.notes_dir / name).write_text(text, encoding="utf-8")
             cursor = self._conn.execute(
                 "INSERT INTO notes (created_at, text, favorite, filename) "
                 "VALUES (?, ?, 0, ?)",
@@ -75,6 +90,8 @@ class SqliteNoteStore:
     def delete(self, note: DbNote) -> None:
         with self._lock:
             self._conn.execute("DELETE FROM notes WHERE id = ?", (note.id,))
+            # even with the mirror disabled: a leftover file would be
+            # re-imported on the next startup, resurrecting the note
             if note.filename:
                 (self.notes_dir / note.filename).unlink(missing_ok=True)
 
@@ -94,7 +111,7 @@ class SqliteNoteStore:
                 "UPDATE notes SET text = ? WHERE id = ?",
                 (new_text, note_id),
             )
-            if row[0]:
+            if self._mirror and row[0]:
                 (self.notes_dir / row[0]).write_text(
                     new_text, encoding="utf-8"
                 )

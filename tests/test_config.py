@@ -24,6 +24,23 @@ def test_defaults_derive_from_base_dir(tmp_path, monkeypatch):
     assert cfg.language == "pt"
 
 
+def test_mirror_defaults_disabled_with_notes_dir():
+    cfg = Config(base_dir=Path("/x/dados"))
+    assert cfg.mirror_enabled is False
+    assert cfg.mirror_dir == Path("/x/dados/notes")
+
+
+def test_load_reads_mirror_settings(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({
+        "mirror_enabled": True,
+        "mirror_dir": str(tmp_path / "espelho"),
+    }))
+    cfg = Config.load(config_file)
+    assert cfg.mirror_enabled is True
+    assert cfg.mirror_dir == tmp_path / "espelho"
+
+
 # ---------------- .deb (system install) awareness ----------------
 
 def test_system_install_wins_the_binary_defaults(tmp_path, monkeypatch):
