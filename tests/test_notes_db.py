@@ -163,6 +163,94 @@ def test_tags_nao_diferenciam_caixa(tmp_path):
     assert store.tags() == ["Compras"]
 
 
+def test_create_tag_cria_avulsa_sem_nota(tmp_path):
+    store = monta(tmp_path)
+    assert store.create_tag("projetos") is True
+    assert store.create_tag("PROJETOS") is False  # já existe (sem caixa)
+    assert store.tags() == ["projetos"]
+    assert store.tags_com_contagem() == [("projetos", 0)]
+
+
+def test_create_tag_vazia_levanta_erro(tmp_path):
+    import pytest
+
+    store = monta(tmp_path)
+    with pytest.raises(ValueError):
+        store.create_tag("   ")
+
+
+def test_delete_tag_remove_associacoes_mas_nao_as_notas(tmp_path):
+    store = monta(tmp_path)
+    nota = store.save("nota que fica")
+    store.add_tag(nota.id, "temporaria")
+    store.delete_tag("temporaria")
+    assert store.tags() == []
+    (sobrou,) = store.list()
+    assert sobrou.text == "nota que fica"
+    assert sobrou.tags == ()
+
+
+def test_rename_tag_simples_preserva_associacoes(tmp_path):
+    store = monta(tmp_path)
+    nota = store.save("x")
+    store.add_tag(nota.id, "mercado")
+    store.rename_tag("mercado", "compras")
+    assert store.tags() == ["compras"]
+    assert store.list()[0].tags == ("compras",)
+
+
+def test_rename_tag_para_nome_existente_faz_merge(tmp_path):
+    store = monta(tmp_path)
+    a = store.save("a")
+    b = store.save("b")
+    store.add_tag(a.id, "mercado")
+    store.add_tag(b.id, "compras")
+    store.add_tag(b.id, "mercado")  # b tem as duas
+    store.rename_tag("mercado", "compras")
+    assert store.tags() == ["compras"]
+    assert {n.text: n.tags for n in store.list()} == {
+        "a": ("compras",), "b": ("compras",),
+    }
+
+
+def test_rename_tag_so_de_caixa_atualiza_o_rotulo(tmp_path):
+    store = monta(tmp_path)
+    nota = store.save("x")
+    store.add_tag(nota.id, "compras")
+    store.rename_tag("compras", "Compras")
+    assert store.tags() == ["Compras"]
+    assert store.list()[0].tags == ("Compras",)
+
+
+def test_rename_tag_inexistente_e_ignorado(tmp_path):
+    store = monta(tmp_path)
+    store.rename_tag("fantasma", "novo")  # não deve levantar
+    assert store.tags() == []
+
+
+def test_rename_tag_para_vazio_levanta_erro(tmp_path):
+    import pytest
+
+    store = monta(tmp_path)
+    nota = store.save("x")
+    store.add_tag(nota.id, "compras")
+    with pytest.raises(ValueError):
+        store.rename_tag("compras", "  ")
+
+
+def test_tags_com_contagem(tmp_path):
+    store = monta(tmp_path)
+    a = store.save("a")
+    b = store.save("b")
+    store.add_tag(a.id, "compras")
+    store.add_tag(b.id, "compras")
+    store.add_tag(a.id, "casa")
+    store.create_tag("vazia")
+    assert store.tags_com_contagem() == [
+        ("casa", 1), ("compras", 2), ("vazia", 0),
+    ]
+
+
 def test_apagar_nota_limpa_associacoes_de_tags(tmp_path):
     store = monta(tmp_path)
     nota = store.save("x")

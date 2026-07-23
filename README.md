@@ -85,14 +85,17 @@ O instalador:
 1. **Super+R** → fala → **Super+R** de novo → uma notificação confirma a nota
    criada. O atalho só funciona enquanto o daemon estiver rodando — feche
    pelo menu da bandeja ("Sair") para desativá-lo.
-2. Menu da bandeja → **Abrir** → janela com todas as notas: busca por
-   texto (full-text, por prefixo, ordenada por relevância), chips de
-   **tags** (várias = interseção), filtro **★ Favoritos** e por período
-   (hoje/7/30 dias). Por nota: ★ favorita, 🏷 gerencia tags (ou cria
-   novas), ▶ ouve (vira ⏸ enquanto toca) e 🗑 apaga.
-3. Menu da bandeja → **Configurações** → troque os 3 atalhos: clique no
-   campo, pressione a nova combinação e pronto (efeito imediato; avisa se a
-   combinação já estiver em uso por outro app).
+2. Menu da bandeja → **Abrir** → janela com sidebar de seções:
+   - **Notas**: busca por texto (full-text, por prefixo, ordenada por
+     relevância), chips de **tags** (várias = interseção), filtro
+     **★ Favoritos** e por período (hoje/7/30 dias). Por nota: ★ favorita,
+     🏷 gerencia tags, ▶ ouve (vira ⏸ enquanto toca) e 🗑 apaga.
+   - **Tags**: criar, listar (com nº de notas), renomear (unindo com a
+     existente se o nome coincidir) e apagar tags — apagar uma tag nunca
+     apaga as notas.
+   - **Configurações**: troque os 3 atalhos — clique no campo, pressione a
+     nova combinação e pronto (efeito imediato; avisa se a combinação já
+     estiver em uso por outro app).
 4. **Super+L** → abre a mesma janela de notas (só funciona com o daemon
    rodando). Atenção: em muitos GNOME, Super+L já bloqueia a tela — se for
    o seu caso, troque a combinação em Configurações.

@@ -1,7 +1,8 @@
-"""Janela de Configurações (Fase 3): trocar os atalhos de teclado pela UI.
+"""Página de Configurações (atalhos de teclado), embutida na sidebar da
+janela principal.
 
-Camada de cola como window.py: captura de teclas com GTK e delegação para
-o ShortcutManager (testado), que grava nos gsettings com efeito imediato.
+Camada de cola: captura de teclas com GTK e delegação para o
+ShortcutManager (testado), que grava nos gsettings com efeito imediato.
 Fora da métrica de cobertura — não deixe lógica crescer aqui.
 
 Nota (Wayland/GNOME): a combinação atualmente registrada como atalho
@@ -15,23 +16,20 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gdk, Gtk  # noqa: E402
 
 
-class SettingsWindow(Gtk.Window):
-    def __init__(self, manager, notifier):
-        super().__init__(title="Configurações")
+class SettingsPage(Gtk.Box):
+    """A janela principal delega key-press-event para handle_key() quando
+    esta página está visível."""
+
+    def __init__(self, manager, notifier, janela):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8,
+                         margin=16)
         self._manager = manager
         self._notifier = notifier
+        self._janela = janela  # pai dos diálogos de conflito
         self._capturando = None  # (acao_id, botao) durante a captura
 
-        self.set_default_size(440, 0)
-        self.set_resizable(False)
-
-        header = Gtk.HeaderBar(title="Configurações",
-                               subtitle="Atalhos de teclado")
-        header.set_show_close_button(True)
-        self.set_titlebar(header)
-
-        grade = Gtk.Grid(row_spacing=8, column_spacing=12, margin=16)
-        self.add(grade)
+        grade = Gtk.Grid(row_spacing=8, column_spacing=12)
+        self.pack_start(grade, False, False, 0)
 
         self._botoes = {}
         for i, acao in enumerate(self._manager.acoes.values()):
@@ -47,11 +45,7 @@ class SettingsWindow(Gtk.Window):
                                "combinação de teclas (Esc cancela).")
         dica.get_style_context().add_class("dim-label")
         dica.set_line_wrap(True)
-        grade.attach(dica, 0, len(self._manager.acoes), 2, 1)
-
-        self.connect("key-press-event", self._on_tecla)
-        # Fechar só esconde, como a janela de notas
-        self.connect("delete-event", self._on_fechar)
+        self.pack_start(dica, False, False, 0)
 
     # ---------------- Estado dos botões ----------------
 
@@ -60,7 +54,7 @@ class SettingsWindow(Gtk.Window):
                 or self._manager.acoes[acao_id].padrao)
 
     def refresh(self):
-        self._capturando = None
+        self._cancela_captura()
         for acao_id, botao in self._botoes.items():
             botao.set_label(self._rotulo(acao_id))
 
@@ -71,7 +65,8 @@ class SettingsWindow(Gtk.Window):
         self._capturando = (acao_id, botao)
         botao.set_label("Pressione o novo atalho...")
 
-    def _on_tecla(self, _widget, event):
+    def handle_key(self, event) -> bool:
+        """Chamado pela janela principal; True = evento consumido."""
         if self._capturando is None:
             return False
         acao_id, botao = self._capturando
@@ -100,7 +95,7 @@ class SettingsWindow(Gtk.Window):
 
     def _confirma_conflito(self, binding, conflitos):
         dialogo = Gtk.MessageDialog(
-            transient_for=self,
+            transient_for=self._janela,
             modal=True,
             message_type=Gtk.MessageType.WARNING,
             buttons=Gtk.ButtonsType.YES_NO,
@@ -118,10 +113,3 @@ class SettingsWindow(Gtk.Window):
             acao_id, botao = self._capturando
             self._capturando = None
             botao.set_label(self._rotulo(acao_id))
-
-    # ---------------- Fechar ----------------
-
-    def _on_fechar(self, *_args):
-        self._cancela_captura()
-        self.hide()
-        return True

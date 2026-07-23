@@ -1,10 +1,14 @@
-"""Janela GTK de notas: listar, buscar (FTS), filtrar por tags/favoritos/
-período, tocar, favoritar, taguear e apagar.
+"""Janela principal do Tomenotas, com sidebar de seções:
 
-Camada de cola como daemon.py: só widgets e delegação para SqliteNoteStore /
-Player (testados). Fica fora da métrica de cobertura (pyproject.toml) e é
-validada manualmente. Não deixe lógica crescer aqui — ponha nos módulos
-do núcleo.
+- Notas: lista com busca FTS, chips de tags, favoritos, período, tocar,
+  favoritar, taguear e apagar.
+- Tags: CRUD de tags (criar, listar com contagem, renomear, apagar).
+- Configurações: atalhos de teclado (SettingsPage).
+
+Camada de cola como daemon.py: só widgets e delegação para
+SqliteNoteStore / Player / ShortcutManager (testados). Fica fora da
+métrica de cobertura (pyproject.toml) e é validada manualmente. Não deixe
+lógica crescer aqui — ponha nos módulos do núcleo.
 """
 
 import threading
@@ -17,6 +21,7 @@ from gi.repository import GLib, Gtk, Pango  # noqa: E402
 from .notes import NoteStore  # noqa: E402
 from .notes_db import periodo_desde  # noqa: E402
 from .player import PlayerError  # noqa: E402
+from .settings_window import SettingsPage  # noqa: E402
 
 PERIODOS = [
     ("", "Qualquer data"),
@@ -27,7 +32,7 @@ PERIODOS = [
 
 
 class NotesWindow(Gtk.Window):
-    def __init__(self, store, player, notifier):
+    def __init__(self, store, player, notifier, shortcuts):
         super().__init__(title="Tomenotas")
         self._store = store
         self._player = player
@@ -37,15 +42,74 @@ class NotesWindow(Gtk.Window):
         self._so_favoritos = False
         self._periodo = ""
 
-        self.set_default_size(680, 560)
+        self.set_default_size(840, 560)
 
         header = Gtk.HeaderBar(title="Tomenotas", subtitle="Suas notas de voz")
         header.set_show_close_button(True)
         self.set_titlebar(header)
 
+        raiz = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(raiz)
+
+        self._stack = Gtk.Stack(
+            transition_type=Gtk.StackTransitionType.CROSSFADE
+        )
+        sidebar = Gtk.StackSidebar()
+        sidebar.set_stack(self._stack)
+        raiz.pack_start(sidebar, False, False, 0)
+        raiz.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.VERTICAL),
+            False, False, 0,
+        )
+        raiz.pack_start(self._stack, True, True, 0)
+
+        self._stack.add_titled(self._monta_pagina_notas(), "notas", "Notas")
+        self._stack.add_titled(self._monta_pagina_tags(), "tags", "Tags")
+        self._config = SettingsPage(shortcuts, notifier, self)
+        self._stack.add_titled(self._config, "config", "Configurações")
+        self._stack.connect("notify::visible-child", self._on_troca_pagina)
+
+        # A captura de atalho da página de Configurações precisa dos
+        # eventos de teclado da janela
+        self.connect("key-press-event", self._on_tecla)
+        # Fechar a janela só esconde — o daemon continua na bandeja
+        self.connect("delete-event", self._on_fechar)
+
+    # ---------------- Entrada pública (daemon) ----------------
+
+    def mostrar(self, pagina=None):
+        self.refresh()
+        self.show_all()
+        if pagina:
+            self._stack.set_visible_child_name(pagina)
+        self.present()
+
+    def refresh(self):
+        self._reconstroi_chips()
+        self._recarrega_lista()
+        self._recarrega_tags()
+        self._config.refresh()
+
+    def _on_troca_pagina(self, *_args):
+        nome = self._stack.get_visible_child_name()
+        if nome == "notas":
+            self._reconstroi_chips()
+            self._recarrega_lista()
+        elif nome == "tags":
+            self._recarrega_tags()
+        elif nome == "config":
+            self._config.refresh()
+
+    def _on_tecla(self, _widget, event):
+        if self._stack.get_visible_child() is self._config:
+            return self._config.handle_key(event)
+        return False
+
+    # ================= Página: Notas =================
+
+    def _monta_pagina_notas(self):
         caixa = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
                         margin=12)
-        self.add(caixa)
 
         self._busca = Gtk.SearchEntry(
             placeholder_text="Buscar nas notas (busca por prefixo)..."
@@ -83,15 +147,7 @@ class NotesWindow(Gtk.Window):
         self._lista.set_selection_mode(Gtk.SelectionMode.NONE)
         rolagem.add(self._lista)
 
-        # Fechar a janela só esconde — o daemon continua na bandeja
-        self.connect("delete-event", self._on_fechar)
-
-    # ---------------- Recarga (filtros → consulta ao banco) ----------------
-
-    def refresh(self):
-        """Reconstrói chips e lista (usado ao abrir e após mudanças)."""
-        self._reconstroi_chips()
-        self._recarrega_lista()
+        return caixa
 
     def _reconstroi_chips(self):
         for filho in self._chips.get_children():
@@ -103,8 +159,7 @@ class NotesWindow(Gtk.Window):
             chip.set_active(nome in self._tags_ativas)  # antes do connect
             chip.connect("toggled", self._on_chip_toggle, nome)
             self._chips.add(chip)
-        self._chips.set_visible(bool(nomes))
-        self._chips.show_all() if nomes else self._chips.hide()
+        self._chips.show_all()
 
     def _recarrega_lista(self):
         self._parar_reproducao()
@@ -153,8 +208,6 @@ class NotesWindow(Gtk.Window):
     def _on_periodo_mudou(self, combo):
         self._periodo = combo.get_active_id() or ""
         self._recarrega_lista()
-
-    # ---------------- Linhas ----------------
 
     def _monta_linha(self, nota):
         linha = Gtk.ListBoxRow(selectable=False)
@@ -238,9 +291,11 @@ class NotesWindow(Gtk.Window):
         nova = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         entrada = Gtk.Entry(placeholder_text="nova tag")
         adicionar = Gtk.Button(label="Adicionar")
-        adicionar.connect("clicked", self._on_nova_tag, nota, entrada)
-        entrada.connect("activate",
-                        lambda e: self._on_nova_tag(adicionar, nota, e))
+        adicionar.connect("clicked", self._on_nova_tag_da_nota, nota, entrada)
+        entrada.connect(
+            "activate",
+            lambda e: self._on_nova_tag_da_nota(adicionar, nota, e),
+        )
         nova.pack_start(entrada, True, True, 0)
         nova.pack_start(adicionar, False, False, 0)
         caixa.pack_start(nova, False, False, 4)
@@ -255,13 +310,150 @@ class NotesWindow(Gtk.Window):
             self._store.remove_tag(nota.id, nome)
         GLib.idle_add(self.refresh)  # atualiza chips e o 🏷 da linha
 
-    def _on_nova_tag(self, _botao, nota, entrada):
+    def _on_nova_tag_da_nota(self, _botao, nota, entrada):
         nome = entrada.get_text().strip()
         if not nome:
             return
         self._store.add_tag(nota.id, nome)
         entrada.set_text("")
         GLib.idle_add(self.refresh)
+
+    # ================= Página: Tags (CRUD) =================
+
+    def _monta_pagina_tags(self):
+        caixa = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6,
+                        margin=12)
+
+        topo = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self._entrada_tag = Gtk.Entry(placeholder_text="nova tag")
+        botao_criar = Gtk.Button(label="Criar")
+        botao_criar.connect("clicked", self._on_criar_tag)
+        self._entrada_tag.connect("activate",
+                                  lambda *_: self._on_criar_tag(botao_criar))
+        topo.pack_start(self._entrada_tag, True, True, 0)
+        topo.pack_start(botao_criar, False, False, 0)
+        caixa.pack_start(topo, False, False, 0)
+
+        rolagem = Gtk.ScrolledWindow()
+        rolagem.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        caixa.pack_start(rolagem, True, True, 0)
+
+        self._lista_tags = Gtk.ListBox()
+        self._lista_tags.set_selection_mode(Gtk.SelectionMode.NONE)
+        rolagem.add(self._lista_tags)
+
+        return caixa
+
+    def _recarrega_tags(self):
+        for filho in self._lista_tags.get_children():
+            self._lista_tags.remove(filho)
+
+        contagens = self._store.tags_com_contagem()
+        if not contagens:
+            linha = Gtk.ListBoxRow(selectable=False)
+            rotulo = Gtk.Label(
+                label="Nenhuma tag ainda.\nCrie uma acima ou pelo 🏷 de uma nota."
+            )
+            rotulo.set_justify(Gtk.Justification.CENTER)
+            linha.add(rotulo)
+            self._lista_tags.add(linha)
+        for nome, quantidade in contagens:
+            self._lista_tags.add(self._monta_linha_tag(nome, quantidade))
+        self._lista_tags.show_all()
+
+    def _monta_linha_tag(self, nome, quantidade):
+        linha = Gtk.ListBoxRow(selectable=False)
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6,
+                       margin=6)
+        linha.add(hbox)
+
+        rotulo = Gtk.Label(label=f"🏷 {nome}", xalign=0)
+        contagem = Gtk.Label(label=f"{quantidade} nota(s)", xalign=0)
+        contagem.get_style_context().add_class("dim-label")
+        hbox.pack_start(rotulo, True, True, 0)
+        hbox.pack_start(contagem, False, False, 6)
+
+        renomear = Gtk.Button.new_from_icon_name(
+            "document-edit-symbolic", Gtk.IconSize.BUTTON
+        )
+        renomear.set_tooltip_text("Renomear esta tag")
+        renomear.connect("clicked", self._on_renomear_tag, nome)
+        hbox.pack_start(renomear, False, False, 0)
+
+        apagar = Gtk.Button.new_from_icon_name(
+            "user-trash-symbolic", Gtk.IconSize.BUTTON
+        )
+        apagar.set_tooltip_text("Apagar esta tag")
+        apagar.connect("clicked", self._on_apagar_tag, nome, quantidade)
+        hbox.pack_start(apagar, False, False, 0)
+
+        return linha
+
+    def _on_criar_tag(self, _botao):
+        nome = self._entrada_tag.get_text().strip()
+        if not nome:
+            return
+        try:
+            criada = self._store.create_tag(nome)
+        except ValueError as erro:
+            self._notifier.send("Erro", str(erro))
+            return
+        if not criada:
+            self._notifier.send("Tags", f"A tag \"{nome}\" já existe.")
+        self._entrada_tag.set_text("")
+        self.refresh()
+
+    def _on_renomear_tag(self, _botao, nome):
+        dialogo = Gtk.Dialog(title=f"Renomear tag \"{nome}\"",
+                             transient_for=self, modal=True)
+        dialogo.add_buttons("Cancelar", Gtk.ResponseType.CANCEL,
+                            "Renomear", Gtk.ResponseType.OK)
+        entrada = Gtk.Entry(text=nome, activates_default=True, margin=8)
+        dialogo.get_content_area().add(entrada)
+        dialogo.set_default_response(Gtk.ResponseType.OK)
+        dialogo.show_all()
+        resposta = dialogo.run()
+        novo = entrada.get_text().strip()
+        dialogo.destroy()
+        if resposta != Gtk.ResponseType.OK or not novo or novo == nome:
+            return
+        # Renomear para uma tag que já existe faz merge — avisa antes
+        existentes = {t.lower() for t in self._store.tags()}
+        if novo.lower() in existentes and novo.lower() != nome.lower():
+            if not self._confirma(
+                f"Já existe a tag \"{novo}\".",
+                f"As notas de \"{nome}\" serão unidas a \"{novo}\". Continuar?",
+            ):
+                return
+        try:
+            self._store.rename_tag(nome, novo)
+        except ValueError as erro:
+            self._notifier.send("Erro", str(erro))
+            return
+        self.refresh()
+
+    def _on_apagar_tag(self, _botao, nome, quantidade):
+        if not self._confirma(
+            f"Apagar a tag \"{nome}\"?",
+            f"As {quantidade} nota(s) associadas não serão apagadas — "
+            "só deixam de ter essa tag.",
+        ):
+            return
+        self._store.delete_tag(nome)
+        self.refresh()
+
+    def _confirma(self, texto, detalhe):
+        dialogo = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text=texto,
+        )
+        dialogo.format_secondary_text(detalhe)
+        resposta = dialogo.run()
+        dialogo.destroy()
+        return resposta == Gtk.ResponseType.YES
 
     # ---------------- Tocar / parar ----------------
 
@@ -323,20 +515,11 @@ class NotesWindow(Gtk.Window):
         self._player.stop()
         self._desmarca_tocando()
 
-    # ---------------- Apagar ----------------
+    # ---------------- Apagar nota ----------------
 
     def _on_apagar(self, _botao, nota):
-        dialogo = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.QUESTION,
-            buttons=Gtk.ButtonsType.YES_NO,
-            text=f"Apagar a nota {nota.title}?",
-        )
-        dialogo.format_secondary_text(NoteStore.preview(nota.text))
-        resposta = dialogo.run()
-        dialogo.destroy()
-        if resposta == Gtk.ResponseType.YES:
+        if self._confirma(f"Apagar a nota {nota.title}?",
+                          NoteStore.preview(nota.text)):
             self._store.delete(nota)
             self.refresh()
 

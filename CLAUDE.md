@@ -68,14 +68,17 @@ still standalone scripts communicating through shared files under
     "Abrir"/"Configurações"/"Sair", D-Bus name `com.tomenotas.Daemon` at
     `/com/tomenotas/Daemon` with
     `ToggleRecording()`/`ShowWindow()`/`ShowSettings()`/`Ping()`, threading
-    for slow work (transcription, TTS synthesis), the notes window (FTS
-    search via `store.search()` — filters re-query the db, no client-side
+    for slow work (transcription, TTS synthesis), and the single main
+    window with a `Gtk.StackSidebar` of three pages: **Notas** (FTS search
+    via `store.search()` — filters re-query the db, no client-side
     filter_func; tag chips with intersection, favorite star per row, tag
     popover, period combo backed by `periodo_desde`, play/pause per note,
-    delete with confirmation) and the Fase 3 settings window (click a
-    field, press the new key combo → applied to gsettings immediately,
-    with a conflict warning dialog; window close hides — the daemon stays
-    in the tray).
+    delete with confirmation), **Tags** (CRUD over
+    `create_tag`/`rename_tag`/`delete_tag`/`tags_com_contagem`, with merge
+    warning on rename collisions) and **Configurações** (`SettingsPage` in
+    settings_window.py, embedded — the window forwards key-press-event to
+    its `handle_key`; ShowSettings/tray menu open the window on that
+    page). Window close hides — the daemon stays in the tray.
     Deliberately thin and dumb: they only build widgets and delegate to the
     tested core. All three are **excluded from coverage** (pyproject omit) —
     keep new behavior out of them and in the core. Recording state lives

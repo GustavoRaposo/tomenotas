@@ -158,6 +158,62 @@ class SqliteNoteStore:
                 "SELECT name FROM tags ORDER BY name COLLATE NOCASE"
             )]
 
+    def tags_com_contagem(self) -> list[tuple[str, int]]:
+        """[(nome, nº de notas)] — para a tela de gestão de tags."""
+        with self._lock:
+            return [tuple(linha) for linha in self._conn.execute(
+                "SELECT t.name, COUNT(nt.note_id) FROM tags t "
+                "LEFT JOIN note_tags nt ON nt.tag_id = t.id "
+                "GROUP BY t.id ORDER BY t.name COLLATE NOCASE"
+            )]
+
+    def create_tag(self, nome: str) -> bool:
+        """Cria uma tag avulsa (sem nota). Devolve False se já existia."""
+        nome = nome.strip()
+        if not nome:
+            raise ValueError("o nome da tag não pode ser vazio")
+        with self._lock:
+            cursor = self._conn.execute(
+                "INSERT OR IGNORE INTO tags (name) VALUES (?)", (nome,)
+            )
+            return cursor.rowcount > 0
+
+    def delete_tag(self, nome: str) -> None:
+        """Apaga a tag; as notas ficam, só perdem a associação (cascade)."""
+        with self._lock:
+            self._conn.execute("DELETE FROM tags WHERE name = ?", (nome,))
+
+    def rename_tag(self, antigo: str, novo: str) -> None:
+        """Renomeia a tag preservando as associações. Se o novo nome já é
+        outra tag, faz merge (as notas da antiga passam para a existente).
+        Mudança só de caixa ("compras" → "Compras") é troca de rótulo."""
+        novo = novo.strip()
+        if not novo:
+            raise ValueError("o nome da tag não pode ser vazio")
+        with self._lock:
+            origem = self._conn.execute(
+                "SELECT id FROM tags WHERE name = ?", (antigo,)
+            ).fetchone()
+            if origem is None:
+                return
+            alvo = self._conn.execute(
+                "SELECT id FROM tags WHERE name = ?", (novo,)
+            ).fetchone()
+            if alvo is None or alvo[0] == origem[0]:
+                self._conn.execute(
+                    "UPDATE tags SET name = ? WHERE id = ?",
+                    (novo, origem[0]),
+                )
+            else:  # merge na tag existente
+                self._conn.execute(
+                    "INSERT OR IGNORE INTO note_tags (note_id, tag_id) "
+                    "SELECT note_id, ? FROM note_tags WHERE tag_id = ?",
+                    (alvo[0], origem[0]),
+                )
+                self._conn.execute(
+                    "DELETE FROM tags WHERE id = ?", (origem[0],)
+                )
+
     # ---------------- busca (filtros combináveis) ----------------
 
     def search(self, texto: str = "", tags=(), favoritos: bool = False,

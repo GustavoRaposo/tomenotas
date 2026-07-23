@@ -149,6 +149,10 @@ na bandeja, sem abrir a janela.
 - [x] UI de filtros/tags/favoritos na janela de notas: busca FTS com
       ranking, chips de tags (interseção), estrela de favorito por nota,
       popover de tags (marcar/desmarcar/criar) e filtro de período
+- [x] Sidebar na janela principal com seções Notas / Tags / Configurações:
+      CRUD completo de tags (criar, listar com contagem, renomear com
+      merge, apagar) e a tela de atalhos embutida (a janela separada de
+      Configurações foi absorvida)
 - [ ] Exportar notas (Markdown, texto simples, ou até áudio re-sintetizado)
 - [ ] Atalho para editar o texto da nota manualmente antes de "arquivar"
 - [ ] Suporte a múltiplas vozes Piper (trocar pela UI)

@@ -29,7 +29,6 @@ from .notes_db import SqliteNoteStore  # noqa: E402
 from .notify import Notifier  # noqa: E402
 from .player import Player  # noqa: E402
 from .recorder import Recorder  # noqa: E402
-from .settings_window import SettingsWindow  # noqa: E402
 from .shortcuts import ShortcutManager  # noqa: E402
 from .transcriber import Transcriber  # noqa: E402
 from .window import NotesWindow  # noqa: E402
@@ -69,7 +68,6 @@ class TrayDaemon:
         self._notifier = notifier
         self._shortcuts = shortcuts
         self._window = None  # criada sob demanda no primeiro "Abrir"
-        self._settings = None  # idem, no primeiro "Configurações"
         self._pulsador = status.Pulsador()
         self._pulsando = False
         self._setup_indicator()
@@ -151,23 +149,14 @@ class TrayDaemon:
     def on_abrir(self, _item):
         self.show_window()
 
-    def show_window(self):
+    def show_window(self, pagina=None):
         if self._window is None:
             self._window = NotesWindow(self._store, self._player,
-                                       self._notifier)
-        self._window.refresh()
-        self._window.show_all()
-        self._window.present()
+                                       self._notifier, self._shortcuts)
+        self._window.mostrar(pagina)
 
     def on_configuracoes(self, _item):
-        self.show_settings()
-
-    def show_settings(self):
-        if self._settings is None:
-            self._settings = SettingsWindow(self._shortcuts, self._notifier)
-        self._settings.refresh()
-        self._settings.show_all()
-        self._settings.present()
+        self.show_window("config")
 
     def on_sair(self, _item):
         self.quit()
@@ -215,7 +204,7 @@ class TrayDaemon:
             self.show_window()
             invocation.return_value(None)
         elif method == "ShowSettings":
-            self.show_settings()
+            self.show_window("config")
             invocation.return_value(None)
         elif method == "Ping":
             invocation.return_value(GLib.Variant("(s)", ("pong",)))
