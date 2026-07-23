@@ -33,13 +33,27 @@ class DaemonCore:
         self._transcriber = transcriber
         self._notes = notes
         self._notifier = notifier
-        self.state = State.IDLE
+        self._state = State.IDLE
+        # Observador de mudanças de estado (Fase 4: ícone da bandeja).
+        # Atenção: finish_recording roda em thread — a cola faz GLib.idle_add.
+        self.on_state_change = None
+
+    @property
+    def state(self) -> State:
+        return self._state
+
+    def _set_state(self, novo: State) -> None:
+        if novo is self._state:
+            return
+        self._state = novo
+        if self.on_state_change is not None:
+            self.on_state_change(novo)
 
     def toggle(self) -> ToggleAction:
         if self.state is State.IDLE:
             return self._start()
         if self.state is State.RECORDING:
-            self.state = State.TRANSCRIBING
+            self._set_state(State.TRANSCRIBING)
             self._notifier.send("Gravação", "Transcrevendo...")
             return ToggleAction.STOP_REQUESTED
         # TRANSCRIBING: ignora o toque até a transcrição anterior acabar
@@ -56,7 +70,7 @@ class DaemonCore:
                 "Erro", "arecord não encontrado. Instale o pacote alsa-utils."
             )
             return ToggleAction.FAILED
-        self.state = State.RECORDING
+        self._set_state(State.RECORDING)
         self._notifier.send(
             "Gravação", "Gravando... aperte o atalho de novo para parar."
         )
@@ -75,9 +89,9 @@ class DaemonCore:
             self._notifier.send("Nota criada", NoteStore.preview(texto))
         finally:
             self._recorder.audio_tmp.unlink(missing_ok=True)
-            self.state = State.IDLE
+            self._set_state(State.IDLE)
 
     def shutdown(self) -> None:
         """Encerra limpo: aborta gravação pendente sem transcrever."""
         self._recorder.abort()
-        self.state = State.IDLE
+        self._set_state(State.IDLE)

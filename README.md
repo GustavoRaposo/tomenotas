@@ -78,6 +78,8 @@ O instalador:
    ```bash
    ~/bin/tomenotas-daemon &
    ```
+   O ícone reflete o estado: neutro = ocioso, **badge vermelho pulsando** =
+   gravando, **badge âmbar pulsando** = transcrevendo.
 1. **Super+R** → fala → **Super+R** de novo → uma notificação confirma a nota
    criada. O atalho só funciona enquanto o daemon estiver rodando — feche
    pelo menu da bandeja ("Sair") para desativá-lo.

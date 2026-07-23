@@ -36,6 +36,10 @@ class Config:
     def tts_tmp(self) -> Path:
         return self.base_dir / "tmp_tts.wav"
 
+    @property
+    def icons_dir(self) -> Path:
+        return self.base_dir / "icons"
+
     @classmethod
     def load(cls, path: Path | None = None) -> "Config":
         """Carrega a config do json (se existir), com override por env vars.

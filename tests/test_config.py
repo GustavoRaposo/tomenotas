@@ -11,6 +11,7 @@ def test_padroes_derivam_de_base_dir():
     assert cfg.notes_dir == Path("/x/dados/notes")
     assert cfg.audio_tmp == Path("/x/dados/tmp_recording.wav")
     assert cfg.tts_tmp == Path("/x/dados/tmp_tts.wav")
+    assert cfg.icons_dir == Path("/x/dados/icons")
     assert cfg.language == "pt"
 
 

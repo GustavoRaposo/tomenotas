@@ -39,6 +39,13 @@ still standalone scripts communicating through shared files under
     run): get/set the three tomenotas custom-keybindings (same ids/paths
     `install.sh` registers) and conflict detection (`list_conflicts`) across
     wm/shell/mutter/media-keys schemas and other custom entries.
+  - `status.py` — Fase 4 mapping state → tray icon name/tooltip plus the
+    `Pulsador` (alternates strong/dim icon variants; AppIndicator can't
+    animate). Icon SVGs live in `assets/icons/` and are installed to
+    `~/.local/share/tomenotas/icons/`; the glue falls back to system icons
+    (no pulse) if that dir is missing. `DaemonCore.on_state_change` is the
+    observer hook — it may fire from the transcription worker thread, so
+    the glue wraps it in `GLib.idle_add`.
   - `daemon.py` + `window.py` + `settings_window.py` — the **glue layer**:
     GTK main loop, `AyatanaAppIndicator3` tray with
     "Abrir"/"Configurações"/"Sair", D-Bus name `com.tomenotas.Daemon` at
@@ -134,9 +141,7 @@ copies have placeholder paths.
 
 ## Roadmap context
 
-See `ROADMAP.md` for the v2 plan. Fase 0 (bash scripts), Fase 1 (daemon
-skeleton: tray icon, D-Bus service, recording migrated into the daemon),
-Fase 2 (GTK notes window: list/search/play/delete) and Fase 3 (settings
-window for rebinding hotkeys with conflict warning) are done. Next up is
-Fase 4 (state-reflecting tray icons) — that and Fase 5 (autostart/packaging)
-don't exist yet.
+See `ROADMAP.md` for the v2 plan. Fases 0–4 are done (bash scripts; daemon
+skeleton with tray + D-Bus; GTK notes window; settings window for hotkeys;
+state-reflecting tray icons with pulse). Next up is Fase 5 (autostart,
+logging, packaging) — none of that exists yet.

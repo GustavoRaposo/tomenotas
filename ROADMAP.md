@@ -97,15 +97,15 @@ qualquer uma com um clique, e apagar sem terminal.
 **Critério de pronto:** mudar um atalho na UI reflete imediatamente no
 comportamento do teclado, sem precisar editar nada manualmente.
 
-## Fase 4 — Feedback visual de estado no ícone
+## Fase 4 — Feedback visual de estado no ícone (concluído)
 
-- [ ] Três ícones (idle, gravando, transcrevendo) como assets do projeto
-- [ ] Daemon troca o ícone (`AppIndicator.set_icon()`) conforme a máquina de
+- [x] Três ícones (idle, gravando, transcrevendo) como assets do projeto
+- [x] Daemon troca o ícone (`AppIndicator.set_icon()`) conforme a máquina de
       estados: `idle → recording → transcribing → idle`
-- [ ] Opcional: "pulsar" o ícone de gravando/transcrevendo alternando entre
+- [x] Opcional: "pulsar" o ícone de gravando/transcrevendo alternando entre
       duas variantes a cada N ms (`GLib.timeout_add`), já que AppIndicator
       não suporta GIF/animação nativamente
-- [ ] Tooltip do ícone reflete o estado atual ("Gravando...",
+- [x] Tooltip do ícone reflete o estado atual ("Gravando...",
       "Transcrevendo...", "Ocioso")
 
 **Critério de pronto:** dá pra saber o estado do app só olhando pro ícone

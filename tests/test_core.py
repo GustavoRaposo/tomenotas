@@ -153,3 +153,38 @@ def test_shutdown_aborta_gravacao(tmp_path):
     core.shutdown()
     assert recorder.abortado
     assert core.state is State.IDLE
+
+
+def test_mudancas_de_estado_notificam_o_observador(tmp_path):
+    core, _, _, _, _ = monta_core(tmp_path)
+    estados = []
+    core.on_state_change = estados.append
+
+    core.toggle()            # idle -> recording
+    core.toggle()            # recording -> transcribing
+    core.finish_recording()  # transcribing -> idle
+
+    assert estados == [State.RECORDING, State.TRANSCRIBING, State.IDLE]
+
+
+def test_estado_repetido_nao_renotifica(tmp_path):
+    core, _, _, _, _ = monta_core(tmp_path)
+    estados = []
+    core.on_state_change = estados.append
+    core.shutdown()  # já estava IDLE: nenhuma notificação
+    assert estados == []
+
+
+def test_observador_e_notificado_no_shutdown_e_no_erro_de_start(tmp_path):
+    core, _, _, _, _ = monta_core(tmp_path, falha_no_start=True)
+    estados = []
+    core.on_state_change = estados.append
+    core.toggle()  # falha no arecord: permanece IDLE, sem notificação
+    assert estados == []
+
+    core2, _, _, _, _ = monta_core(tmp_path)
+    estados2 = []
+    core2.on_state_change = estados2.append
+    core2.toggle()
+    core2.shutdown()
+    assert estados2 == [State.RECORDING, State.IDLE]

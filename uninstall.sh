@@ -55,8 +55,8 @@ rm -f "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh" "$BIN_DIR/ler.sh" \
       "$BIN_DIR/tomenotas-daemon" "$BIN_DIR/tomenotas-hotkey-record" \
       "$BIN_DIR/tomenotas-hotkey-window"
 
-echo "==> Removendo venv do daemon e configuração..."
-rm -rf "$DATA_DIR/venv" "$HOME/.config/tomenotas"
+echo "==> Removendo venv do daemon, ícones e configuração..."
+rm -rf "$DATA_DIR/venv" "$DATA_DIR/icons" "$HOME/.config/tomenotas"
 
 # remove processo de gravação pendente, se houver
 if [ -f "$DATA_DIR/recording.pid" ]; then

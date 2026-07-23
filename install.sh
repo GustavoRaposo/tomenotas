@@ -68,6 +68,10 @@ python3 -m venv --system-site-packages "$VENV_DIR"
 "$VENV_DIR/bin/pip" install -q "$SCRIPT_DIR"
 ln -sf "$VENV_DIR/bin/tomenotas-daemon" "$BIN_DIR/tomenotas-daemon"
 
+echo "==> Instalando ícones da bandeja..."
+mkdir -p "$DATA_DIR/icons"
+cp "$SCRIPT_DIR/assets/icons/"*.svg "$DATA_DIR/icons/"
+
 # Caminhos padrão (as seções abaixo refinam quando instalam de verdade);
 # no fim, tudo vai para ~/.config/tomenotas/config.json, lido pelo daemon.
 WHISPER_BIN_PATH="$WHISPER_DIR/build/bin/whisper-cli"

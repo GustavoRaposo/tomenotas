@@ -18,8 +18,9 @@ gi.require_version("AyatanaAppIndicator3", "0.1")
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
 from gi.repository import AyatanaAppIndicator3 as AppIndicator  # noqa: E402
 
+from . import status  # noqa: E402
 from .config import Config  # noqa: E402
-from .core import DaemonCore, ToggleAction  # noqa: E402
+from .core import DaemonCore, State, ToggleAction  # noqa: E402
 from .notes import NoteStore  # noqa: E402
 from .notify import Notifier  # noqa: E402
 from .player import Player  # noqa: E402
@@ -31,6 +32,13 @@ from .window import NotesWindow  # noqa: E402
 
 BUS_NAME = "com.tomenotas.Daemon"
 OBJECT_PATH = "/com/tomenotas/Daemon"
+
+# Fallback quando os SVGs do projeto não estão instalados (sem pulso)
+FALLBACK_ICONES = {
+    State.IDLE: "audio-input-microphone-symbolic",
+    State.RECORDING: "media-record-symbolic",
+    State.TRANSCRIBING: "system-run-symbolic",
+}
 
 INTROSPECTION_XML = """
 <node>
@@ -58,19 +66,38 @@ class TrayDaemon:
         self._shortcuts = shortcuts
         self._window = None  # criada sob demanda no primeiro "Abrir"
         self._settings = None  # idem, no primeiro "Configurações"
+        self._pulsador = status.Pulsador()
+        self._pulsando = False
         self._setup_indicator()
         self._setup_dbus()
+        # Fase 4: o ícone reflete a máquina de estados. finish_recording
+        # roda em thread, então o update vai para a thread principal.
+        core.on_state_change = (
+            lambda estado: GLib.idle_add(self._on_estado, estado)
+        )
 
     # ---------------- Bandeja (AppIndicator) ----------------
 
     def _setup_indicator(self):
-        self.indicator = AppIndicator.Indicator.new(
-            "tomenotas",
-            "audio-input-microphone-symbolic",
-            AppIndicator.IndicatorCategory.APPLICATION_STATUS,
-        )
+        icons_dir = self._config.icons_dir
+        self._tem_icones = icons_dir.is_dir()
+        if self._tem_icones:
+            self.indicator = AppIndicator.Indicator.new_with_path(
+                "tomenotas",
+                status.icone(self._core.state),
+                AppIndicator.IndicatorCategory.APPLICATION_STATUS,
+                str(icons_dir),
+            )
+        else:
+            self.indicator = AppIndicator.Indicator.new(
+                "tomenotas",
+                FALLBACK_ICONES[self._core.state],
+                AppIndicator.IndicatorCategory.APPLICATION_STATUS,
+            )
         self.indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
-        self.indicator.set_title("Tomenotas")
+        self.indicator.set_title(
+            f"Tomenotas — {status.tooltip(self._core.state)}"
+        )
 
         menu = Gtk.Menu()
 
@@ -88,6 +115,30 @@ class TrayDaemon:
 
         menu.show_all()
         self.indicator.set_menu(menu)
+
+    def _on_estado(self, estado):
+        """Aplica o estado no ícone/tooltip (thread principal)."""
+        dica = status.tooltip(estado)
+        self.indicator.set_title(f"Tomenotas — {dica}")
+        if not self._tem_icones:
+            self.indicator.set_icon_full(FALLBACK_ICONES[estado], dica)
+            return False
+        self.indicator.set_icon_full(status.icone(estado), dica)
+        if status.pulsa(estado) and not self._pulsando:
+            self._pulsando = True
+            GLib.timeout_add(600, self._pulso_tick)
+        return False  # idle_add: não repetir
+
+    def _pulso_tick(self):
+        estado = self._core.state
+        if not status.pulsa(estado):
+            # _on_estado já pôs o ícone de ocioso; só encerra o timer
+            self._pulsando = False
+            return False
+        self.indicator.set_icon_full(
+            self._pulsador.proximo(estado), status.tooltip(estado)
+        )
+        return True
 
     def on_abrir(self, _item):
         self.show_window()
