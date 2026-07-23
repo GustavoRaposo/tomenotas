@@ -143,8 +143,11 @@ na bandeja, sem abrir a janela.
       `ShowSettings`, `ToggleRecording`, `Ping`). A separação
       núcleo/cola atual (núcleo 100% testado, cola fina) torna essa troca
       de "casca" barata — o núcleo não muda.
-- [ ] Migrar armazenamento de notas para SQLite (busca full-text, tags,
-      favoritos) — ver detalhamento na seção abaixo
+- [x] Migrar armazenamento de notas para SQLite com migrations
+      (`notes_db.py` + `migrations.py`; espelho `.txt` mantido para os
+      scripts legados) — ver detalhamento na seção abaixo
+- [ ] UI de filtros/tags/favoritos na janela de notas (o armazenamento já
+      expõe `search()`, tags e favoritos — falta só a interface)
 - [ ] Exportar notas (Markdown, texto simples, ou até áudio re-sintetizado)
 - [ ] Atalho para editar o texto da nota manualmente antes de "arquivar"
 - [ ] Suporte a múltiplas vozes Piper (trocar pela UI)
@@ -213,8 +216,10 @@ CREATE VIRTUAL TABLE notes_fts USING fts5(
   `notes/` (timestamp do nome → `created_at`), move os originais para
   `notes/backup-pre-sqlite/` em vez de apagar (sem perda).
 - O banco vira a fonte da verdade. Os scripts legados (`listar.sh`,
-  `ler.sh`) leem `.txt` — decidir na v3: aposentá-los de vez ou gerar um
-  espelho `.txt` somente-leitura para compatibilidade.
+  `ler.sh`) leem `.txt` — **decisão implementada**: cada nota mantém um
+  espelho `.txt` em `notes/` (criado no save, removido no delete), e
+  `.txt` criados por fora do daemon são importados na abertura seguinte;
+  por isso a migração inicial importa os `.txt` existentes sem movê-los.
 
 ### Migrations — evolução do esquema sem perda de dados
 

@@ -186,7 +186,7 @@ class NotesWindow(Gtk.Window):
         resposta = dialogo.run()
         dialogo.destroy()
         if resposta == Gtk.ResponseType.YES:
-            self._store.delete(nota.path)
+            self._store.delete(nota)
             self.refresh()
 
     # ---------------- Fechar ----------------

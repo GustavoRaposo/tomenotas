@@ -42,6 +42,10 @@ class Config:
     def icons_dir(self) -> Path:
         return self.base_dir / "icons"
 
+    @property
+    def db_path(self) -> Path:
+        return self.base_dir / "notes.db"
+
     @classmethod
     def load(cls, path: Path | None = None) -> "Config":
         """Carrega a config do json (se existir), com override por env vars.

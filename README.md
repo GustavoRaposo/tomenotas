@@ -111,7 +111,8 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ├── venv/               # pacote Python do daemon
 ├── icons/              # ícones da bandeja (estado)
 ├── daemon.log          # log do daemon (rotativo)
-├── notes/              # suas notas de texto (.txt)
+├── notes.db            # banco de notas (fonte da verdade; backups .bak-*)
+├── notes/              # espelho .txt das notas (usado por ler.sh/listar.sh)
 ├── current_note        # ponteiro para a nota selecionada em listar.sh
 └── recording.pid        # usado só pelo gravar.sh legado, não pelo daemon
 ~/whisper.cpp/           # binário e modelo do whisper.cpp

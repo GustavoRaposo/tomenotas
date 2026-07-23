@@ -23,7 +23,8 @@ from . import __version__  # noqa: E402
 from .config import Config  # noqa: E402
 from .core import DaemonCore, State, ToggleAction  # noqa: E402
 from .logs import setup_logging  # noqa: E402
-from .notes import NoteStore  # noqa: E402
+from .migrations import MigrationError  # noqa: E402
+from .notes_db import SqliteNoteStore  # noqa: E402
 from .notify import Notifier  # noqa: E402
 from .player import Player  # noqa: E402
 from .recorder import Recorder  # noqa: E402
@@ -57,8 +58,8 @@ INTROSPECTION_XML = """
 
 
 class TrayDaemon:
-    def __init__(self, core: DaemonCore, config: Config, store: NoteStore,
-                 player: Player, notifier: Notifier,
+    def __init__(self, core: DaemonCore, config: Config,
+                 store: SqliteNoteStore, player: Player, notifier: Notifier,
                  shortcuts: ShortcutManager):
         self._core = core
         self._config = config
@@ -233,7 +234,14 @@ def main():
     log = setup_logging(config.base_dir / "daemon.log")
     log.info("daemon iniciando (tomenotas %s)", __version__)
     notifier = Notifier()
-    store = NoteStore(config.notes_dir)
+    try:
+        store = SqliteNoteStore(config.db_path, config.notes_dir)
+    except MigrationError as erro:
+        # Banco intacto na versão anterior (rollback + backup) — avisa e
+        # não sobe, em vez de rodar com esquema incompatível.
+        log.error("%s", erro)
+        notifier.send("Erro no banco de notas", str(erro))
+        sys.exit(1)
     player = Player(config.piper_bin, config.piper_model, config.tts_tmp)
     core = DaemonCore(
         recorder=Recorder(config.audio_tmp),

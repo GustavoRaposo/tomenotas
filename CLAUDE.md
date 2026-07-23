@@ -50,6 +50,19 @@ still standalone scripts communicating through shared files under
     `logging.getLogger("tomenotas.<mod>")`; `setup_logging()` (called in
     `daemon.main`) attaches a rotating file handler writing to
     `~/.local/share/tomenotas/daemon.log` (idempotent per target file).
+  - `notes_db.py` + `migrations.py` — SQLite storage, the source of truth
+    (`~/.local/share/tomenotas/notes.db`): FTS5 search (`search()` with
+    combinable text/tags/favorites/period filters, bm25 ranking), tags and
+    favorites. **Every schema change MUST be a new immutable `Migration`
+    appended to `MIGRATIONS`** (never edit a published one) plus a test
+    that migrates a *populated* older-version db and proves nothing is
+    lost; the version lives in `PRAGMA user_version`, each migration runs
+    in its own transaction, and the db file is backed up
+    (`notes.db.bak-v<n>-<ts>`, last 3 kept) before upgrading. Each note
+    keeps a `.txt` mirror in `notes/` so the legacy scripts still work,
+    and foreign `.txt` files (e.g. from legacy `gravar.sh`) are imported
+    at startup. A `MigrationError` at startup aborts the daemon with a
+    notification, leaving the db untouched.
   - `daemon.py` + `window.py` + `settings_window.py` — the **glue layer**:
     GTK main loop, `AyatanaAppIndicator3` tray with
     "Abrir"/"Configurações"/"Sair", D-Bus name `com.tomenotas.Daemon` at
@@ -107,7 +120,8 @@ State/data layout (see README "Onde ficam os arquivos" for the authoritative lis
 ~/.config/tomenotas/config.json # whisper paths, read by the daemon
 ~/.local/share/tomenotas/
 ├── venv/              # daemon package install (system-site-packages)
-├── notes/*.txt        # transcribed notes, one file per recording
+├── notes.db           # SQLite source of truth (+ notes.db.bak-* backups)
+├── notes/*.txt        # read-only .txt mirror of the db (legacy scripts)
 ├── current_note       # path to the note selected in listar.sh
 └── recording.pid       # only written by the legacy gravar.sh, not the daemon
 ~/whisper.cpp/          # whisper.cpp build + model
