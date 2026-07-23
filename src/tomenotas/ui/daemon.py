@@ -1,10 +1,10 @@
-"""Camada de cola do daemon: bandeja (AyatanaAppIndicator3), serviço D-Bus
-(com.tomenotas.Daemon) e main loop GTK.
+"""Daemon glue layer: tray (AyatanaAppIndicator3), D-Bus service
+(com.tomenotas.Daemon) and the GTK main loop.
 
-Mantida deliberadamente fina e burra: só constrói os componentes e delega
-para o DaemonCore (testado). Fica fora da métrica de cobertura (ver
-pyproject.toml) e é validada manualmente — ver "Testing changes" no
-CLAUDE.md.
+Kept deliberately thin and dumb: it only builds the components and
+delegates to the (tested) DaemonCore. Stays outside the coverage metric
+(see pyproject.toml) and is validated manually — see "Testing changes"
+in CLAUDE.md.
 """
 
 import os
@@ -37,8 +37,8 @@ from .window import NotesWindow  # noqa: E402
 BUS_NAME = "com.tomenotas.Daemon"
 OBJECT_PATH = "/com/tomenotas/Daemon"
 
-# Fallback quando os SVGs do projeto não estão instalados (sem pulso)
-FALLBACK_ICONES = {
+# Fallback when the project SVGs are not installed (no pulse)
+FALLBACK_ICONS = {
     State.IDLE: "audio-input-microphone-symbolic",
     State.RECORDING: "media-record-symbolic",
     State.TRANSCRIBING: "system-run-symbolic",
@@ -69,37 +69,37 @@ class TrayDaemon:
         self._player = player
         self._notifier = notifier
         self._shortcuts = shortcuts
-        self._window = None  # criada sob demanda no primeiro "Abrir"
-        self._pulsador = status.Pulsador()
-        self._pulsando = False
+        self._window = None  # created on demand at the first "Abrir"
+        self._pulser = status.Pulser()
+        self._pulsing = False
         self._setup_indicator()
         self._setup_dbus()
-        # Fase 4: o ícone reflete a máquina de estados. finish_recording
-        # roda em thread, então o update vai para a thread principal.
+        # Fase 4: the icon mirrors the state machine. finish_recording
+        # runs in a thread, so the update is posted to the main thread.
         core.on_state_change = (
-            lambda estado: GLib.idle_add(self._on_estado, estado)
+            lambda state: GLib.idle_add(self._on_state, state)
         )
-        # Fase 5: clicar numa notificação abre a janela de notas
+        # Fase 5: clicking a notification opens the notes window
         notifier.on_activate = (
             lambda: GLib.idle_add(self.show_window)
         )
 
-    # ---------------- Bandeja (AppIndicator) ----------------
+    # ---------------- Tray (AppIndicator) ----------------
 
     def _setup_indicator(self):
         icons_dir = self._config.icons_dir
-        self._tem_icones = icons_dir.is_dir()
-        if self._tem_icones:
+        self._has_icons = icons_dir.is_dir()
+        if self._has_icons:
             self.indicator = AppIndicator.Indicator.new_with_path(
                 "tomenotas",
-                status.icone(self._core.state),
+                status.icon(self._core.state),
                 AppIndicator.IndicatorCategory.APPLICATION_STATUS,
                 str(icons_dir),
             )
         else:
             self.indicator = AppIndicator.Indicator.new(
                 "tomenotas",
-                FALLBACK_ICONES[self._core.state],
+                FALLBACK_ICONS[self._core.state],
                 AppIndicator.IndicatorCategory.APPLICATION_STATUS,
             )
         self.indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
@@ -109,58 +109,58 @@ class TrayDaemon:
 
         menu = Gtk.Menu()
 
-        item_abrir = Gtk.MenuItem(label="Abrir")
-        item_abrir.connect("activate", self.on_abrir)
-        menu.append(item_abrir)
+        open_item = Gtk.MenuItem(label="Abrir")
+        open_item.connect("activate", self.on_open)
+        menu.append(open_item)
 
-        item_config = Gtk.MenuItem(label="Configurações")
-        item_config.connect("activate", self.on_configuracoes)
-        menu.append(item_config)
+        settings_item = Gtk.MenuItem(label="Configurações")
+        settings_item.connect("activate", self.on_settings)
+        menu.append(settings_item)
 
-        item_sair = Gtk.MenuItem(label="Sair")
-        item_sair.connect("activate", self.on_sair)
-        menu.append(item_sair)
+        quit_item = Gtk.MenuItem(label="Sair")
+        quit_item.connect("activate", self.on_quit)
+        menu.append(quit_item)
 
         menu.show_all()
         self.indicator.set_menu(menu)
 
-    def _on_estado(self, estado):
-        """Aplica o estado no ícone/tooltip (thread principal)."""
-        dica = status.tooltip(estado)
-        self.indicator.set_title(f"Tomenotas — {dica}")
-        if not self._tem_icones:
-            self.indicator.set_icon_full(FALLBACK_ICONES[estado], dica)
+    def _on_state(self, state):
+        """Applies the state to the icon/tooltip (main thread)."""
+        hint = status.tooltip(state)
+        self.indicator.set_title(f"Tomenotas — {hint}")
+        if not self._has_icons:
+            self.indicator.set_icon_full(FALLBACK_ICONS[state], hint)
             return False
-        self.indicator.set_icon_full(status.icone(estado), dica)
-        if status.pulsa(estado) and not self._pulsando:
-            self._pulsando = True
-            GLib.timeout_add(600, self._pulso_tick)
-        return False  # idle_add: não repetir
+        self.indicator.set_icon_full(status.icon(state), hint)
+        if status.pulses(state) and not self._pulsing:
+            self._pulsing = True
+            GLib.timeout_add(600, self._pulse_tick)
+        return False  # idle_add: do not repeat
 
-    def _pulso_tick(self):
-        estado = self._core.state
-        if not status.pulsa(estado):
-            # _on_estado já pôs o ícone de ocioso; só encerra o timer
-            self._pulsando = False
+    def _pulse_tick(self):
+        state = self._core.state
+        if not status.pulses(state):
+            # _on_state already set the idle icon; just stop the timer
+            self._pulsing = False
             return False
         self.indicator.set_icon_full(
-            self._pulsador.proximo(estado), status.tooltip(estado)
+            self._pulser.next_icon(state), status.tooltip(state)
         )
         return True
 
-    def on_abrir(self, _item):
+    def on_open(self, _item):
         self.show_window()
 
-    def show_window(self, pagina=None):
+    def show_window(self, page=None):
         if self._window is None:
             self._window = NotesWindow(self._store, self._player,
                                        self._notifier, self._shortcuts)
-        self._window.mostrar(pagina)
+        self._window.show_page(page)
 
-    def on_configuracoes(self, _item):
+    def on_settings(self, _item):
         self.show_window("config")
 
-    def on_sair(self, _item):
+    def on_quit(self, _item):
         self.quit()
 
     def quit(self):
@@ -191,8 +191,8 @@ class TrayDaemon:
         )
 
     def _on_name_lost(self, _connection, _name):
-        # Outra instância já é dona do nome (ou perdemos a conexão): não faz
-        # sentido continuar rodando duplicado.
+        # Another instance already owns the name (or we lost the
+        # connection): no point in running duplicated.
         print(f"tomenotas-daemon: nome {BUS_NAME} indisponível "
               "(já existe outra instância rodando?)", file=sys.stderr)
         Gtk.main_quit()
@@ -203,7 +203,7 @@ class TrayDaemon:
             self._handle_toggle()
             invocation.return_value(None)
         elif method == "ReadCurrentNote":
-            # síntese TTS é lenta — thread, como a transcrição
+            # TTS synthesis is slow — thread, like the transcription
             threading.Thread(
                 target=self._core.read_current_note, daemon=True
             ).start()
@@ -218,10 +218,10 @@ class TrayDaemon:
             invocation.return_value(GLib.Variant("(s)", ("pong",)))
 
     def _handle_toggle(self):
-        acao = self._core.toggle()
-        if acao is ToggleAction.STOP_REQUESTED:
-            # A transcrição é lenta — roda numa thread para não travar o
-            # main loop (bandeja e D-Bus continuam respondendo).
+        action = self._core.toggle()
+        if action is ToggleAction.STOP_REQUESTED:
+            # Transcription is slow — run it in a thread so the main loop
+            # stays responsive (tray and D-Bus keep answering).
             threading.Thread(
                 target=self._core.finish_recording, daemon=True
             ).start()
@@ -230,20 +230,21 @@ class TrayDaemon:
 def main():
     config = Config.load()
     log = setup_logging(config.base_dir / "daemon.log")
-    # O daemon pode ser lançado de qualquer diretório (terminal, autostart,
-    # lançador) — inclusive de um que deixe de existir depois. Ancora o cwd
-    # no base_dir para que os subprocessos (whisper/piper/arecord) nunca
-    # herdem um cwd inválido (o whisper-cli aborta se getcwd() falhar).
+    # The daemon can be launched from any directory (terminal, autostart,
+    # launcher) — including one that may cease to exist. Anchor the cwd
+    # at base_dir so subprocesses (whisper/piper/arecord) never inherit
+    # an invalid cwd (whisper-cli aborts if getcwd() fails).
     os.chdir(config.base_dir)
-    log.info("daemon iniciando (tomenotas %s)", __version__)
+    log.info("daemon starting (tomenotas %s)", __version__)
     notifier = Notifier()
     try:
         store = SqliteNoteStore(config.db_path, config.notes_dir)
-    except MigrationError as erro:
-        # Banco intacto na versão anterior (rollback + backup) — avisa e
-        # não sobe, em vez de rodar com esquema incompatível.
-        log.error("%s", erro)
-        notifier.send("Erro no banco de notas", str(erro))
+    except MigrationError as error:
+        # Database intact at the previous version (rollback + backup) —
+        # warn and refuse to start rather than run with an incompatible
+        # schema.
+        log.error("%s", error)
+        notifier.send("Erro no banco de notas", str(error))
         sys.exit(1)
     player = Player(config.piper_bin, config.piper_model, config.tts_tmp)
     core = DaemonCore(
@@ -257,10 +258,10 @@ def main():
     )
     shortcuts = ShortcutManager(config.bin_dir)
     app = TrayDaemon(core, config, store, player, notifier, shortcuts)
-    # Ctrl+C no terminal encerra limpo (útil ao rodar o daemon na mão)
+    # Ctrl+C in the terminal exits cleanly (useful when run by hand)
     signal.signal(signal.SIGINT, lambda *_: app.quit())
     Gtk.main()
-    log.info("daemon encerrado")
+    log.info("daemon stopped")
 
 
 if __name__ == "__main__":

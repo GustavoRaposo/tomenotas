@@ -1,9 +1,9 @@
-"""Caso de uso central: máquina de estados idle → recording → transcribing.
+"""Central use case: the idle → recording → transcribing state machine.
 
-Lógica pura e síncrona, sem GTK/D-Bus/threads — tudo de I/O entra por
-injeção (recorder, transcriber, notes, notifier), o que torna o módulo
-100% testável. A camada de cola (ui/daemon.py) decide o que roda em
-thread. Importa apenas domain/ — nunca infra/ ou ui/.
+Pure, synchronous logic with no GTK/D-Bus/threads — all I/O comes in via
+injection (recorder, transcriber, notes, notifier), which makes the
+module 100% testable. The glue layer (ui/daemon.py) decides what runs in
+a thread. Imports only domain/ — never infra/ or ui/.
 """
 
 import logging
@@ -21,23 +21,24 @@ class DaemonCore:
         self._transcriber = transcriber
         self._notes = notes
         self._notifier = notifier
-        self._player = player  # usado por read_current_note (Super+T)
+        self._player = player  # used by read_current_note (Super+T)
         self._state = State.IDLE
-        # Observador de mudanças de estado (ícone da bandeja).
-        # Atenção: finish_recording roda em thread — a cola faz GLib.idle_add.
+        # Observer for state changes (tray icon).
+        # Careful: finish_recording runs in a thread — the glue wraps
+        # this with GLib.idle_add.
         self.on_state_change = None
 
     @property
     def state(self) -> State:
         return self._state
 
-    def _set_state(self, novo: State) -> None:
-        if novo is self._state:
+    def _set_state(self, new: State) -> None:
+        if new is self._state:
             return
-        log.info("estado: %s -> %s", self._state.name, novo.name)
-        self._state = novo
+        log.info("state: %s -> %s", self._state.name, new.name)
+        self._state = new
         if self.on_state_change is not None:
-            self.on_state_change(novo)
+            self.on_state_change(new)
 
     def toggle(self) -> ToggleAction:
         if self.state is State.IDLE:
@@ -46,7 +47,7 @@ class DaemonCore:
             self._set_state(State.TRANSCRIBING)
             self._notifier.send("Gravação", "Transcrevendo...")
             return ToggleAction.STOP_REQUESTED
-        # TRANSCRIBING: ignora o toque até a transcrição anterior acabar
+        # TRANSCRIBING: ignore the press until the previous transcription ends
         self._notifier.send(
             "Gravação", "Aguarde: ainda transcrevendo a nota anterior."
         )
@@ -56,7 +57,7 @@ class DaemonCore:
         try:
             self._recorder.start()
         except FileNotFoundError:
-            log.error("arecord não encontrado")
+            log.error("arecord not found")
             self._notifier.send(
                 "Erro", "arecord não encontrado. Instale o pacote alsa-utils."
             )
@@ -68,37 +69,38 @@ class DaemonCore:
         return ToggleAction.STARTED
 
     def finish_recording(self) -> None:
-        """Para o arecord, transcreve e salva a nota. Síncrono e lento —
-        a cola chama isto numa thread para não travar o main loop."""
+        """Stops arecord, transcribes and saves the note. Synchronous and
+        slow — the glue calls this in a thread to keep the main loop
+        responsive."""
         try:
             self._recorder.stop()
-            texto = self._transcriber.transcribe(self._recorder.audio_tmp)
-        except TranscriptionError as erro:
-            log.error("transcrição falhou: %s", erro)
-            self._notifier.send("Erro", str(erro))
+            text = self._transcriber.transcribe(self._recorder.audio_tmp)
+        except TranscriptionError as error:
+            log.error("transcription failed: %s", error)
+            self._notifier.send("Erro", str(error))
         else:
-            caminho = self._notes.save(texto)
-            log.info("nota criada: %s", caminho)
-            self._notifier.send("Nota criada", preview(texto))
+            path = self._notes.save(text)
+            log.info("note created: %s", path)
+            self._notifier.send("Nota criada", preview(text))
         finally:
             self._recorder.audio_tmp.unlink(missing_ok=True)
             self._set_state(State.IDLE)
 
     def read_current_note(self) -> None:
-        """Lê em voz alta a nota mais recente (Super+T — substitui o
-        ler.sh legado). Síncrono e lento (síntese TTS) — a cola chama
-        numa thread. Mensagens iguais às do ler.sh."""
-        notas = self._notes.list()
-        if not notas:
+        """Reads the most recent note aloud (Super+T — replaces the
+        legacy ler.sh). Synchronous and slow (TTS synthesis) — the glue
+        calls it in a thread. Messages match the old ler.sh."""
+        notes = self._notes.list()
+        if not notes:
             self._notifier.send("TTS", "Nenhuma nota disponível para ler.")
             return
         try:
-            self._player.play(notas[0].text)
-        except PlayerError as erro:
-            log.error("leitura falhou: %s", erro)
-            self._notifier.send("Erro", str(erro))
+            self._player.play(notes[0].text)
+        except PlayerError as error:
+            log.error("read-aloud failed: %s", error)
+            self._notifier.send("Erro", str(error))
 
     def shutdown(self) -> None:
-        """Encerra limpo: aborta gravação pendente sem transcrever."""
+        """Clean shutdown: aborts any pending recording without transcribing."""
         self._recorder.abort()
         self._set_state(State.IDLE)

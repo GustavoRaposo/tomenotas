@@ -1,4 +1,4 @@
-"""Transcrição de áudio via whisper.cpp (subprocess)."""
+"""Audio transcription via whisper.cpp (subprocess)."""
 
 import logging
 import subprocess
@@ -23,10 +23,10 @@ class Transcriber:
         self._run = run
 
     def transcribe(self, wav_path: Path) -> str:
-        """Transcreve o .wav e devolve o texto. Levanta TranscriptionError
-        (com mensagem pronta para o usuário) em qualquer falha."""
-        # Checagens com mensagens específicas (Fase 5), em vez do erro
-        # genérico de "falha ao transcrever":
+        """Transcribes the .wav and returns the text. Raises
+        TranscriptionError (with a user-ready message) on any failure."""
+        # Checks with specific messages (Fase 5), instead of the generic
+        # "failed to transcribe" error:
         if not wav_path.exists():
             raise TranscriptionError(
                 "Áudio da gravação não encontrado. O microfone está funcionando?"
@@ -36,7 +36,7 @@ class Transcriber:
                 f"Modelo do whisper não encontrado: {self._whisper_model}"
             )
 
-        log.info("transcrevendo %s", wav_path)
+        log.info("transcribing %s", wav_path)
         out_base = wav_path.with_name("tmp_transcricao")
         cmd = [
             str(self._whisper_bin),
@@ -60,6 +60,6 @@ class Transcriber:
         if not out_file.exists():
             raise TranscriptionError("Falha ao transcrever o áudio.")
 
-        texto = out_file.read_text(encoding="utf-8", errors="replace").strip()
+        text = out_file.read_text(encoding="utf-8", errors="replace").strip()
         out_file.unlink()
-        return texto
+        return text

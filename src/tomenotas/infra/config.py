@@ -1,8 +1,9 @@
-"""Configuração do Tomenotas.
+"""Tomenotas configuration.
 
-Substitui o antigo patch via sed do install.sh: os caminhos vêm de
-~/.config/tomenotas/config.json (escrito pelo instalador), com override
-por variáveis de ambiente (TOMENOTAS_*) — útil em testes e debug.
+Replaces the old sed-patching done by install.sh: paths come from
+~/.config/tomenotas/config.json (written by the installer), with
+overrides via environment variables (TOMENOTAS_*) — handy in tests and
+debugging.
 """
 
 import json
@@ -48,10 +49,10 @@ class Config:
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Config":
-        """Carrega a config do json (se existir), com override por env vars.
+        """Loads the config from json (if present), with env var overrides.
 
-        Um json inválido não derruba o daemon: avisa no stderr e usa os
-        padrões (o usuário ainda consegue gravar).
+        An invalid json does not take the daemon down: it warns and falls
+        back to the defaults (the user can still record).
         """
         path = path or CONFIG_PATH
         data: dict = {}
@@ -59,29 +60,29 @@ class Config:
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
-                log.warning("config inválida em %s, usando padrões", path)
+                log.warning("invalid config at %s, using defaults", path)
                 data = {}
 
-        padrao = cls()
+        default = cls()
 
-        def caminho(chave: str, env_var: str, valor_padrao: Path) -> Path:
-            bruto = os.environ.get(env_var) or data.get(chave)
-            return Path(bruto).expanduser() if bruto else valor_padrao
+        def path_for(key: str, env_var: str, default_value: Path) -> Path:
+            raw = os.environ.get(env_var) or data.get(key)
+            return Path(raw).expanduser() if raw else default_value
 
         return cls(
-            whisper_bin=caminho(
-                "whisper_bin", "TOMENOTAS_WHISPER_BIN", padrao.whisper_bin
+            whisper_bin=path_for(
+                "whisper_bin", "TOMENOTAS_WHISPER_BIN", default.whisper_bin
             ),
-            whisper_model=caminho(
-                "whisper_model", "TOMENOTAS_WHISPER_MODEL", padrao.whisper_model
+            whisper_model=path_for(
+                "whisper_model", "TOMENOTAS_WHISPER_MODEL", default.whisper_model
             ),
-            piper_bin=caminho("piper_bin", "TOMENOTAS_PIPER_BIN", padrao.piper_bin),
-            piper_model=caminho(
-                "piper_model", "TOMENOTAS_PIPER_MODEL", padrao.piper_model
+            piper_bin=path_for("piper_bin", "TOMENOTAS_PIPER_BIN", default.piper_bin),
+            piper_model=path_for(
+                "piper_model", "TOMENOTAS_PIPER_MODEL", default.piper_model
             ),
-            base_dir=caminho("base_dir", "TOMENOTAS_BASE_DIR", padrao.base_dir),
-            bin_dir=caminho("bin_dir", "TOMENOTAS_BIN_DIR", padrao.bin_dir),
+            base_dir=path_for("base_dir", "TOMENOTAS_BASE_DIR", default.base_dir),
+            bin_dir=path_for("bin_dir", "TOMENOTAS_BIN_DIR", default.bin_dir),
             language=os.environ.get("TOMENOTAS_LANGUAGE")
             or data.get("language")
-            or padrao.language,
+            or default.language,
         )

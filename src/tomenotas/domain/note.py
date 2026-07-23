@@ -1,16 +1,16 @@
-"""Nota: o tipo central do domínio."""
+"""Note: the central domain type."""
 
 from dataclasses import dataclass
 from pathlib import Path
 
 
-def preview(texto: str, limite: int = 60) -> str:
-    """Prévia curta usada em notificações e na lista de notas.
+def preview(text: str, limit: int = 60) -> str:
+    """Short preview used in notifications and in the notes list.
 
-    Sempre uma linha só: quebras de linha e espaços repetidos colapsam
-    num espaço simples, para que os itens da lista tenham altura padrão.
+    Always a single line: newlines and repeated whitespace collapse into
+    a single space, so list items keep a uniform height.
     """
-    return " ".join(texto.split())[:limite]
+    return " ".join(text.split())[:limit]
 
 
 @dataclass(frozen=True)
@@ -28,11 +28,11 @@ class DbNote:
             return Path(self.filename).stem
         return self.created_at.replace("T", " ")
 
-    def matches(self, consulta: str) -> bool:
-        """Filtro rápido em memória (compatível com a janela de notas)."""
-        consulta = consulta.strip().lower()
-        return (consulta in self.text.lower()
-                or consulta in self.title.lower())
+    def matches(self, query: str) -> bool:
+        """Fast in-memory filter (kept compatible with the notes window)."""
+        query = query.strip().lower()
+        return (query in self.text.lower()
+                or query in self.title.lower())
 
     def __str__(self) -> str:
-        return self.title  # logs legíveis ("nota criada: <timestamp>")
+        return self.title  # readable logs ("note created: <timestamp>")

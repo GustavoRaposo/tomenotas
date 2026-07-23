@@ -1,10 +1,11 @@
-"""Teste de fumaça da UI: monta a janela de verdade (GTK) e exercita o
-fluxo de abrir o detalhe de uma nota — o caminho que os testes de unidade
-não cobrem porque ui/ fica fora da métrica.
+"""UI smoke test: builds the real (GTK) window and exercises the flow of
+opening a note's detail view — the path unit tests don't cover because
+ui/ stays outside the metric.
 
-Só roda quando há display (local); em ambientes sem GTK/display é pulado.
-Este teste existe porque um refactor removeu o atributo `.note` das linhas
-e o clique passou a falhar em silêncio.
+Only runs when a display is available (local); skipped in environments
+without GTK/display. This test exists because a refactor once removed
+the `.note` attribute from the rows and clicking started failing
+silently.
 """
 
 import os
@@ -12,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-tem_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 gtk_ok = True
-try:  # pragma: no cover - depende do ambiente
+try:  # pragma: no cover - depends on the environment
     import gi
 
     gi.require_version("Gtk", "3.0")
@@ -23,12 +24,12 @@ except Exception:  # pragma: no cover
     gtk_ok = False
 
 pytestmark = pytest.mark.skipif(
-    not (tem_display and gtk_ok), reason="requer GTK e display"
+    not (has_display and gtk_ok), reason="requires GTK and a display"
 )
 
 
 @pytest.fixture
-def janela(tmp_path):
+def window(tmp_path):
     from tomenotas.infra.notes_db import SqliteNoteStore
     from tomenotas.infra.notify import Notifier
     from tomenotas.infra.player import Player
@@ -37,38 +38,38 @@ def janela(tmp_path):
 
     store = SqliteNoteStore(tmp_path / "notes.db", tmp_path / "notes")
     store.save("nota de teste para o detalhe")
-    janela = NotesWindow(
+    window = NotesWindow(
         store,
         Player(Path("/x/piper"), Path("/x/voz.onnx"), tmp_path / "t.wav"),
-        Notifier(spawn=lambda cmd, **kw: None),  # sem notificações reais
+        Notifier(spawn=lambda cmd, **kw: None),  # no real notifications
         ShortcutManager(Path.home() / "bin"),
     )
-    janela.refresh()
-    # torna os filhos do stack "visíveis" sem mapear a janela na tela
-    # (Gtk.Stack não troca para um filho com visible=False)
-    janela._stack_notas.show_all()
-    yield janela
-    janela.destroy()
+    window.refresh()
+    # makes the stack children "visible" without mapping the window
+    # (Gtk.Stack won't switch to a child with visible=False)
+    window._notes_stack.show_all()
+    yield window
+    window.destroy()
 
 
-def test_linhas_carregam_a_nota_e_ativar_abre_o_detalhe(janela):
-    (linha,) = janela._lista.get_children()
-    assert getattr(linha, "note", None) is not None
-    assert linha.get_activatable()
+def test_rows_carry_the_note_and_activating_opens_the_detail(window):
+    (row,) = window._list.get_children()
+    assert getattr(row, "note", None) is not None
+    assert row.get_activatable()
 
-    janela._on_nota_ativada(janela._lista, linha)
+    window._on_note_activated(window._list, row)
 
-    assert janela._stack_notas.get_visible_child_name() == "detalhe"
-    assert janela._texto_do_editor() == "nota de teste para o detalhe"
+    assert window._notes_stack.get_visible_child_name() == "detail"
+    assert window._editor_text() == "nota de teste para o detalhe"
 
 
-def test_salvar_edicao_persiste_e_volta_para_a_lista(janela):
-    (linha,) = janela._lista.get_children()
-    janela._on_nota_ativada(janela._lista, linha)
-    janela._editor.get_buffer().set_text("texto editado no teste")
+def test_saving_an_edit_persists_and_returns_to_the_list(window):
+    (row,) = window._list.get_children()
+    window._on_note_activated(window._list, row)
+    window._editor.get_buffer().set_text("texto editado no teste")
 
-    janela._on_salvar_detalhe(None)
+    window._on_detail_save(None)
 
-    assert janela._stack_notas.get_visible_child_name() == "lista"
-    (nota,) = janela._store.list()
-    assert nota.text == "texto editado no teste"
+    assert window._notes_stack.get_visible_child_name() == "list"
+    (note,) = window._store.list()
+    assert note.text == "texto editado no teste"

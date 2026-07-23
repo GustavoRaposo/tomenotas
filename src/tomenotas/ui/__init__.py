@@ -1,6 +1,6 @@
-"""Camada de UI: GTK/AppIndicator/D-Bus — a cola, fina e burra.
+"""UI layer: GTK/AppIndicator/D-Bus — the glue, thin and dumb.
 
-Única camada autorizada a importar gi (regra imposta pelo
-tests/test_arquitetura.py). Fica fora da métrica de cobertura e é
-validada manualmente.
+The only layer allowed to import gi (rule enforced by
+tests/test_architecture.py). Stays outside the coverage metric and is
+validated manually.
 """

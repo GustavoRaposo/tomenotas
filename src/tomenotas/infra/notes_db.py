@@ -1,13 +1,12 @@
-"""Armazenamento de notas em SQLite: busca FTS5, tags, favoritos (v3).
+"""SQLite note storage: FTS5 search, tags, favorites (v3).
 
-O banco (~/.local/share/tomenotas/notes.db) é a fonte da verdade. Decisão
-do ROADMAP implementada como espelho: cada nota mantém um .txt em notes/
-para os scripts legados (ler.sh/listar.sh) continuarem funcionando, e .txt
-criados por fora do daemon (ex.: gravar.sh legado) são importados na
-abertura seguinte.
+The database (~/.local/share/tomenotas/notes.db) is the source of truth.
+ROADMAP decision implemented as a mirror: each note keeps a .txt in
+notes/ as a plain-text export, and .txt files created outside the daemon
+are imported on the next startup.
 
-Mesmo contrato do NoteStore de arquivos (save/list/delete + Note.matches)
-mais favoritos, tags e search() com filtros combináveis.
+Same contract as the old file-based NoteStore (save/list/delete +
+Note.matches) plus favorites, tags and search() with combinable filters.
 """
 
 import logging
@@ -29,253 +28,258 @@ class SqliteNoteStore:
     def __init__(self, db_path, notes_dir: Path, now=datetime.now):
         self.notes_dir = Path(notes_dir)
         self._now = now
-        # save() roda na thread de transcrição; o resto na thread principal
+        # save() runs on the transcription thread; the rest on the main one
         self._lock = threading.Lock()
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
-        self._conn.isolation_level = None  # autocommit fora das migrations
+        self._conn.isolation_level = None  # autocommit outside migrations
         self._conn.execute("PRAGMA foreign_keys = ON")
 
-        caminho = Path(db_path) if str(db_path) != ":memory:" else None
-        apply_migrations(self._conn, db_path=caminho)
+        path = Path(db_path) if str(db_path) != ":memory:" else None
+        apply_migrations(self._conn, db_path=path)
 
-        importadas = self._importa_txt()
-        if importadas:
-            log.info("%d nota(s) .txt importada(s) para o banco", importadas)
+        imported = self._import_txt()
+        if imported:
+            log.info("%d .txt note(s) imported into the database", imported)
 
     def close(self) -> None:
         self._conn.close()
 
-    def __del__(self):  # pragma: no cover - depende do momento do GC
+    def __del__(self):  # pragma: no cover - depends on GC timing
         try:
             self._conn.close()
         except Exception:
             pass
 
-    # ---------------- contrato básico (core/janela) ----------------
+    # ---------------- basic contract (core/window) ----------------
 
-    def save(self, texto: str) -> DbNote:
+    def save(self, text: str) -> DbNote:
         with self._lock:
-            agora = self._now()
+            now = self._now()
             self.notes_dir.mkdir(parents=True, exist_ok=True)
-            base = agora.strftime("%Y-%m-%d_%H-%M-%S")
-            nome, contador = f"{base}.txt", 2
-            while (self.notes_dir / nome).exists():
-                nome = f"{base}-{contador}.txt"
-                contador += 1
-            (self.notes_dir / nome).write_text(texto, encoding="utf-8")
+            base = now.strftime("%Y-%m-%d_%H-%M-%S")
+            name, counter = f"{base}.txt", 2
+            while (self.notes_dir / name).exists():
+                name = f"{base}-{counter}.txt"
+                counter += 1
+            (self.notes_dir / name).write_text(text, encoding="utf-8")
             cursor = self._conn.execute(
                 "INSERT INTO notes (created_at, text, favorite, filename) "
                 "VALUES (?, ?, 0, ?)",
-                (agora.isoformat(timespec="seconds"), texto, nome),
+                (now.isoformat(timespec="seconds"), text, name),
             )
-            return self._nota(cursor.lastrowid)
+            return self._note(cursor.lastrowid)
 
     def list(self) -> list[DbNote]:
         return self.search()
 
-    def delete(self, nota: DbNote) -> None:
+    def delete(self, note: DbNote) -> None:
         with self._lock:
-            self._conn.execute("DELETE FROM notes WHERE id = ?", (nota.id,))
-            if nota.filename:
-                (self.notes_dir / nota.filename).unlink(missing_ok=True)
+            self._conn.execute("DELETE FROM notes WHERE id = ?", (note.id,))
+            if note.filename:
+                (self.notes_dir / note.filename).unlink(missing_ok=True)
 
-    def update_text(self, nota_id: int, novo_texto: str) -> DbNote | None:
-        """Edita o texto da nota (banco + índice FTS via trigger + espelho
-        .txt). Devolve a nota atualizada, ou None se o id não existe."""
-        if not novo_texto.strip():
+    def update_text(self, note_id: int, new_text: str) -> DbNote | None:
+        """Edits the note text (database + FTS index via trigger + .txt
+        mirror). Returns the updated note, or None if the id does not
+        exist."""
+        if not new_text.strip():
             raise ValueError("o texto da nota não pode ser vazio")
         with self._lock:
-            linha = self._conn.execute(
-                "SELECT filename FROM notes WHERE id = ?", (nota_id,)
+            row = self._conn.execute(
+                "SELECT filename FROM notes WHERE id = ?", (note_id,)
             ).fetchone()
-            if linha is None:
+            if row is None:
                 return None
             self._conn.execute(
                 "UPDATE notes SET text = ? WHERE id = ?",
-                (novo_texto, nota_id),
+                (new_text, note_id),
             )
-            if linha[0]:
-                (self.notes_dir / linha[0]).write_text(
-                    novo_texto, encoding="utf-8"
+            if row[0]:
+                (self.notes_dir / row[0]).write_text(
+                    new_text, encoding="utf-8"
                 )
-            return self._nota(nota_id)
+            return self._note(note_id)
 
-    # ---------------- favoritos e tags ----------------
+    # ---------------- favorites and tags ----------------
 
-    def set_favorite(self, nota_id: int, valor: bool) -> None:
+    def set_favorite(self, note_id: int, value: bool) -> None:
         with self._lock:
             self._conn.execute(
                 "UPDATE notes SET favorite = ? WHERE id = ?",
-                (int(bool(valor)), nota_id),
+                (int(bool(value)), note_id),
             )
 
-    def add_tag(self, nota_id: int, nome: str) -> None:
+    def add_tag(self, note_id: int, name: str) -> None:
         with self._lock:
             self._conn.execute(
-                "INSERT OR IGNORE INTO tags (name) VALUES (?)", (nome,)
+                "INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,)
             )
-            # name é UNIQUE COLLATE NOCASE: "Compras" e "compras" são a mesma
+            # name is UNIQUE COLLATE NOCASE: "Compras" and "compras" match
             tag_id = self._conn.execute(
-                "SELECT id FROM tags WHERE name = ?", (nome,)
+                "SELECT id FROM tags WHERE name = ?", (name,)
             ).fetchone()[0]
             self._conn.execute(
                 "INSERT OR IGNORE INTO note_tags (note_id, tag_id) "
                 "VALUES (?, ?)",
-                (nota_id, tag_id),
+                (note_id, tag_id),
             )
 
-    def remove_tag(self, nota_id: int, nome: str) -> None:
+    def remove_tag(self, note_id: int, name: str) -> None:
         with self._lock:
             self._conn.execute(
                 "DELETE FROM note_tags WHERE note_id = ? AND tag_id = "
                 "(SELECT id FROM tags WHERE name = ?)",
-                (nota_id, nome),
+                (note_id, name),
             )
 
     def tags(self) -> list[str]:
         with self._lock:
-            return [linha[0] for linha in self._conn.execute(
+            return [row[0] for row in self._conn.execute(
                 "SELECT name FROM tags ORDER BY name COLLATE NOCASE"
             )]
 
-    def tags_com_contagem(self) -> list[tuple[str, int]]:
-        """[(nome, nº de notas)] — para a tela de gestão de tags."""
+    def tags_with_counts(self) -> list[tuple[str, int]]:
+        """[(name, number of notes)] — for the tag management page."""
         with self._lock:
-            return [tuple(linha) for linha in self._conn.execute(
+            return [tuple(row) for row in self._conn.execute(
                 "SELECT t.name, COUNT(nt.note_id) FROM tags t "
                 "LEFT JOIN note_tags nt ON nt.tag_id = t.id "
                 "GROUP BY t.id ORDER BY t.name COLLATE NOCASE"
             )]
 
-    def create_tag(self, nome: str) -> bool:
-        """Cria uma tag avulsa (sem nota). Devolve False se já existia."""
-        nome = nome.strip()
-        if not nome:
+    def create_tag(self, name: str) -> bool:
+        """Creates a standalone tag (no note). Returns False if it
+        already existed."""
+        name = name.strip()
+        if not name:
             raise ValueError("o nome da tag não pode ser vazio")
         with self._lock:
             cursor = self._conn.execute(
-                "INSERT OR IGNORE INTO tags (name) VALUES (?)", (nome,)
+                "INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,)
             )
             return cursor.rowcount > 0
 
-    def delete_tag(self, nome: str) -> None:
-        """Apaga a tag; as notas ficam, só perdem a associação (cascade)."""
+    def delete_tag(self, name: str) -> None:
+        """Deletes the tag; notes stay, only the association goes
+        (cascade)."""
         with self._lock:
-            self._conn.execute("DELETE FROM tags WHERE name = ?", (nome,))
+            self._conn.execute("DELETE FROM tags WHERE name = ?", (name,))
 
-    def rename_tag(self, antigo: str, novo: str) -> None:
-        """Renomeia a tag preservando as associações. Se o novo nome já é
-        outra tag, faz merge (as notas da antiga passam para a existente).
-        Mudança só de caixa ("compras" → "Compras") é troca de rótulo."""
-        novo = novo.strip()
-        if not novo:
+    def rename_tag(self, old: str, new: str) -> None:
+        """Renames the tag preserving associations. If the new name is
+        already another tag, merges (the old tag's notes move to the
+        existing one). Case-only change ("compras" → "Compras") is just a
+        relabel."""
+        new = new.strip()
+        if not new:
             raise ValueError("o nome da tag não pode ser vazio")
         with self._lock:
-            origem = self._conn.execute(
-                "SELECT id FROM tags WHERE name = ?", (antigo,)
+            source = self._conn.execute(
+                "SELECT id FROM tags WHERE name = ?", (old,)
             ).fetchone()
-            if origem is None:
+            if source is None:
                 return
-            alvo = self._conn.execute(
-                "SELECT id FROM tags WHERE name = ?", (novo,)
+            target = self._conn.execute(
+                "SELECT id FROM tags WHERE name = ?", (new,)
             ).fetchone()
-            if alvo is None or alvo[0] == origem[0]:
+            if target is None or target[0] == source[0]:
                 self._conn.execute(
                     "UPDATE tags SET name = ? WHERE id = ?",
-                    (novo, origem[0]),
+                    (new, source[0]),
                 )
-            else:  # merge na tag existente
+            else:  # merge into the existing tag
                 self._conn.execute(
                     "INSERT OR IGNORE INTO note_tags (note_id, tag_id) "
                     "SELECT note_id, ? FROM note_tags WHERE tag_id = ?",
-                    (alvo[0], origem[0]),
+                    (target[0], source[0]),
                 )
                 self._conn.execute(
-                    "DELETE FROM tags WHERE id = ?", (origem[0],)
+                    "DELETE FROM tags WHERE id = ?", (source[0],)
                 )
 
-    # ---------------- busca (filtros combináveis) ----------------
+    # ---------------- search (combinable filters) ----------------
 
-    def search(self, texto: str = "", tags=(), favoritos: bool = False,
-               desde: str | None = None) -> list[DbNote]:
+    def search(self, text: str = "", tags=(), favorites: bool = False,
+               since: str | None = None) -> list[DbNote]:
         with self._lock:
             sql = "SELECT n.id FROM notes n"
-            condicoes, params = [], []
+            conditions, params = [], []
 
-            consulta_fts = self._consulta_fts(texto)
-            if consulta_fts:
+            fts_query = self._fts_query(text)
+            if fts_query:
                 sql += " JOIN notes_fts ON notes_fts.rowid = n.id"
-                condicoes.append("notes_fts MATCH ?")
-                params.append(consulta_fts)
+                conditions.append("notes_fts MATCH ?")
+                params.append(fts_query)
             if tags:
-                marcadores = ", ".join("?" * len(tags))
-                condicoes.append(
+                placeholders = ", ".join("?" * len(tags))
+                conditions.append(
                     "n.id IN (SELECT nt.note_id FROM note_tags nt "
                     "JOIN tags t ON t.id = nt.tag_id "
-                    f"WHERE t.name IN ({marcadores}) "
+                    f"WHERE t.name IN ({placeholders}) "
                     "GROUP BY nt.note_id HAVING COUNT(DISTINCT t.id) = ?)"
                 )
                 params.extend(tags)
                 params.append(len(tags))
-            if favoritos:
-                condicoes.append("n.favorite = 1")
-            if desde:
-                condicoes.append("n.created_at >= ?")
-                params.append(desde)
+            if favorites:
+                conditions.append("n.favorite = 1")
+            if since:
+                conditions.append("n.created_at >= ?")
+                params.append(since)
 
-            if condicoes:
-                sql += " WHERE " + " AND ".join(condicoes)
-            # com texto: ranking de relevância; sem texto: mais recente antes
-            sql += (" ORDER BY bm25(notes_fts)" if consulta_fts
+            if conditions:
+                sql += " WHERE " + " AND ".join(conditions)
+            # with text: relevance ranking; without: most recent first
+            sql += (" ORDER BY bm25(notes_fts)" if fts_query
                     else " ORDER BY n.created_at DESC, n.id DESC")
 
-            ids = [linha[0] for linha in self._conn.execute(sql, params)]
-            return [self._nota(nota_id) for nota_id in ids]
+            ids = [row[0] for row in self._conn.execute(sql, params)]
+            return [self._note(note_id) for note_id in ids]
 
     @staticmethod
-    def _consulta_fts(texto: str) -> str | None:
-        """Sanitiza a busca do usuário para a sintaxe FTS5: cada palavra
-        vira um termo com prefixo ("palavra"*), combinadas com AND."""
-        tokens = re.findall(r"\w+", texto)
+    def _fts_query(text: str) -> str | None:
+        """Sanitizes the user's search into FTS5 syntax: each word
+        becomes a prefix term ("word"*), combined with AND."""
+        tokens = re.findall(r"\w+", text)
         if not tokens:
             return None
         return " ".join(f'"{token}"*' for token in tokens)
 
-    # ---------------- internos ----------------
+    # ---------------- internals ----------------
 
-    def _nota(self, nota_id: int) -> DbNote:
-        linha = self._conn.execute(
+    def _note(self, note_id: int) -> DbNote:
+        row = self._conn.execute(
             "SELECT id, created_at, text, favorite, filename "
-            "FROM notes WHERE id = ?", (nota_id,)
+            "FROM notes WHERE id = ?", (note_id,)
         ).fetchone()
-        etiquetas = tuple(t[0] for t in self._conn.execute(
+        tags = tuple(t[0] for t in self._conn.execute(
             "SELECT t.name FROM tags t "
             "JOIN note_tags nt ON nt.tag_id = t.id "
             "WHERE nt.note_id = ? ORDER BY t.name COLLATE NOCASE",
-            (nota_id,),
+            (note_id,),
         ))
         return DbNote(
-            id=linha[0], created_at=linha[1], text=linha[2],
-            favorite=bool(linha[3]), tags=etiquetas, filename=linha[4],
+            id=row[0], created_at=row[1], text=row[2],
+            favorite=bool(row[3]), tags=tags, filename=row[4],
         )
 
-    def _importa_txt(self) -> int:
-        """Importa .txt de notes/ que ainda não estão no banco (notas da
-        era pré-SQLite e as criadas pelo gravar.sh legado)."""
+    def _import_txt(self) -> int:
+        """Imports .txt files from notes/ that are not yet in the
+        database (notes from the pre-SQLite era and ones created by the
+        legacy gravar.sh)."""
         if not self.notes_dir.is_dir():
             return 0
-        conhecidos = {linha[0] for linha in self._conn.execute(
+        known = {row[0] for row in self._conn.execute(
             "SELECT filename FROM notes WHERE filename IS NOT NULL"
         )}
         total = 0
         for txt in sorted(self.notes_dir.glob("*.txt")):
-            if txt.name in conhecidos:
+            if txt.name in known:
                 continue
             self._conn.execute(
                 "INSERT INTO notes (created_at, text, favorite, filename) "
                 "VALUES (?, ?, 0, ?)",
                 (
-                    self._created_at_de(txt),
+                    self._created_at_for(txt),
                     txt.read_text(encoding="utf-8", errors="replace"),
                     txt.name,
                 ),
@@ -284,13 +288,13 @@ class SqliteNoteStore:
         return total
 
     @staticmethod
-    def _created_at_de(txt: Path) -> str:
-        casamento = _STEM_TS.match(txt.stem)
-        if casamento:
+    def _created_at_for(txt: Path) -> str:
+        match = _STEM_TS.match(txt.stem)
+        if match:
             return datetime.strptime(
-                casamento.group(1), "%Y-%m-%d_%H-%M-%S"
+                match.group(1), "%Y-%m-%d_%H-%M-%S"
             ).isoformat(timespec="seconds")
-        # nome fora do padrão (arquivo criado na mão): usa o mtime
+        # non-standard name (hand-made file): fall back to the mtime
         return datetime.fromtimestamp(
             txt.stat().st_mtime
         ).isoformat(timespec="seconds")

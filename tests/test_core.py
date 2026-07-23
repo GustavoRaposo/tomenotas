@@ -1,4 +1,4 @@
-"""Testes de tomenotas.core — a máquina de estados do daemon."""
+"""Tests for tomenotas.app.core — the daemon state machine."""
 
 from datetime import datetime
 from pathlib import Path
@@ -9,116 +9,116 @@ from tomenotas.domain.state import State, ToggleAction
 from tomenotas.infra.notes_db import SqliteNoteStore
 
 
-class RecorderFalso:
-    def __init__(self, audio_tmp: Path, falha_no_start=False):
+class FakeRecorder:
+    def __init__(self, audio_tmp: Path, fails_on_start=False):
         self.audio_tmp = audio_tmp
-        self.falha_no_start = falha_no_start
-        self.iniciado = False
-        self.parado = False
-        self.abortado = False
+        self.fails_on_start = fails_on_start
+        self.started = False
+        self.stopped = False
+        self.aborted = False
 
     def start(self):
-        if self.falha_no_start:
+        if self.fails_on_start:
             raise FileNotFoundError
-        self.iniciado = True
+        self.started = True
 
     def stop(self):
-        self.parado = True
+        self.stopped = True
 
     def abort(self):
-        self.abortado = True
+        self.aborted = True
 
 
-class TranscriberFalso:
-    def __init__(self, texto="texto transcrito", erro=None):
-        self.texto = texto
-        self.erro = erro
-        self.transcreveu = []
+class FakeTranscriber:
+    def __init__(self, text="texto transcrito", error=None):
+        self.text = text
+        self.error = error
+        self.transcribed = []
 
     def transcribe(self, wav_path):
-        self.transcreveu.append(wav_path)
-        if self.erro:
-            raise self.erro
-        return self.texto
+        self.transcribed.append(wav_path)
+        if self.error:
+            raise self.error
+        return self.text
 
 
-class NotifierFalso:
+class FakeNotifier:
     def __init__(self):
-        self.mensagens = []
+        self.messages = []
 
-    def send(self, titulo, corpo):
-        self.mensagens.append((titulo, corpo))
-
-
-class PlayerFalso:
-    def __init__(self, erro=None):
-        self.erro = erro
-        self.tocados = []
-
-    def play(self, texto):
-        if self.erro:
-            raise self.erro
-        self.tocados.append(texto)
+    def send(self, title, body):
+        self.messages.append((title, body))
 
 
-def monta_core(tmp_path, falha_no_start=False, erro_transcricao=None,
-               texto="texto transcrito", erro_player=None):
+class FakePlayer:
+    def __init__(self, error=None):
+        self.error = error
+        self.played = []
+
+    def play(self, text):
+        if self.error:
+            raise self.error
+        self.played.append(text)
+
+
+def make_core(tmp_path, fails_on_start=False, transcription_error=None,
+              text="texto transcrito", player_error=None):
     audio_tmp = tmp_path / "tmp_recording.wav"
-    recorder = RecorderFalso(audio_tmp, falha_no_start=falha_no_start)
-    transcriber = TranscriberFalso(texto=texto, erro=erro_transcricao)
+    recorder = FakeRecorder(audio_tmp, fails_on_start=fails_on_start)
+    transcriber = FakeTranscriber(text=text, error=transcription_error)
     notes = SqliteNoteStore(tmp_path / "notes.db", tmp_path / "notes",
                             now=lambda: datetime(2026, 7, 22, 15, 0, 38))
-    notifier = NotifierFalso()
+    notifier = FakeNotifier()
     core = DaemonCore(recorder, transcriber, notes, notifier,
-                      player=PlayerFalso(erro=erro_player))
+                      player=FakePlayer(error=player_error))
     return core, recorder, transcriber, notes, notifier
 
 
-def test_toggle_ocioso_inicia_gravacao(tmp_path):
-    core, recorder, _, _, notifier = monta_core(tmp_path)
-    acao = core.toggle()
-    assert acao is ToggleAction.STARTED
+def test_toggle_while_idle_starts_recording(tmp_path):
+    core, recorder, _, _, notifier = make_core(tmp_path)
+    action = core.toggle()
+    assert action is ToggleAction.STARTED
     assert core.state is State.RECORDING
-    assert recorder.iniciado
-    assert notifier.mensagens == [
+    assert recorder.started
+    assert notifier.messages == [
         ("Gravação", "Gravando... aperte o atalho de novo para parar.")
     ]
 
 
-def test_toggle_sem_arecord_avisa_e_continua_ocioso(tmp_path):
-    core, _, _, _, notifier = monta_core(tmp_path, falha_no_start=True)
-    acao = core.toggle()
-    assert acao is ToggleAction.FAILED
+def test_toggle_without_arecord_warns_and_stays_idle(tmp_path):
+    core, _, _, _, notifier = make_core(tmp_path, fails_on_start=True)
+    action = core.toggle()
+    assert action is ToggleAction.FAILED
     assert core.state is State.IDLE
-    assert notifier.mensagens == [
+    assert notifier.messages == [
         ("Erro", "arecord não encontrado. Instale o pacote alsa-utils.")
     ]
 
 
-def test_toggle_gravando_pede_parada(tmp_path):
-    core, _, _, _, notifier = monta_core(tmp_path)
+def test_toggle_while_recording_requests_stop(tmp_path):
+    core, _, _, _, notifier = make_core(tmp_path)
     core.toggle()
-    acao = core.toggle()
-    assert acao is ToggleAction.STOP_REQUESTED
+    action = core.toggle()
+    assert action is ToggleAction.STOP_REQUESTED
     assert core.state is State.TRANSCRIBING
-    assert notifier.mensagens[-1] == ("Gravação", "Transcrevendo...")
+    assert notifier.messages[-1] == ("Gravação", "Transcrevendo...")
 
 
-def test_toggle_durante_transcricao_e_ignorado(tmp_path):
-    core, recorder, _, _, notifier = monta_core(tmp_path)
+def test_toggle_while_transcribing_is_ignored(tmp_path):
+    core, recorder, _, _, notifier = make_core(tmp_path)
     core.toggle()
     core.toggle()
-    acao = core.toggle()
-    assert acao is ToggleAction.BUSY
+    action = core.toggle()
+    assert action is ToggleAction.BUSY
     assert core.state is State.TRANSCRIBING
-    assert notifier.mensagens[-1] == (
+    assert notifier.messages[-1] == (
         "Gravação", "Aguarde: ainda transcrevendo a nota anterior."
     )
 
 
-def test_finish_salva_nota_e_volta_a_ocioso(tmp_path):
-    core, recorder, transcriber, notes, notifier = monta_core(
-        tmp_path, texto="conteúdo da nota gravada"
+def test_finish_saves_note_and_returns_to_idle(tmp_path):
+    core, recorder, transcriber, notes, notifier = make_core(
+        tmp_path, text="conteúdo da nota gravada"
     )
     recorder.audio_tmp.write_bytes(b"RIFF")
     core.toggle()
@@ -126,27 +126,28 @@ def test_finish_salva_nota_e_volta_a_ocioso(tmp_path):
 
     core.finish_recording()
 
-    assert recorder.parado
-    assert transcriber.transcreveu == [recorder.audio_tmp]
-    nota = notes.notes_dir / "2026-07-22_15-00-38.txt"
-    assert nota.read_text(encoding="utf-8") == "conteúdo da nota gravada"
-    assert notifier.mensagens[-1] == ("Nota criada", "conteúdo da nota gravada")
-    assert not recorder.audio_tmp.exists()  # .wav temporário apagado
+    assert recorder.stopped
+    assert transcriber.transcribed == [recorder.audio_tmp]
+    note = notes.notes_dir / "2026-07-22_15-00-38.txt"
+    assert note.read_text(encoding="utf-8") == "conteúdo da nota gravada"
+    assert notifier.messages[-1] == ("Nota criada", "conteúdo da nota gravada")
+    assert not recorder.audio_tmp.exists()  # temp .wav removed
     assert core.state is State.IDLE
 
 
-def test_finish_com_preview_truncado(tmp_path):
-    texto = "x" * 100
-    core, _, _, _, notifier = monta_core(tmp_path, texto=texto)
+def test_finish_with_truncated_preview(tmp_path):
+    text = "x" * 100
+    core, _, _, _, notifier = make_core(tmp_path, text=text)
     core.toggle()
     core.toggle()
     core.finish_recording()
-    assert notifier.mensagens[-1] == ("Nota criada", "x" * 60)
+    assert notifier.messages[-1] == ("Nota criada", "x" * 60)
 
 
-def test_finish_com_erro_notifica_e_volta_a_ocioso(tmp_path):
-    core, recorder, _, notes, notifier = monta_core(
-        tmp_path, erro_transcricao=TranscriptionError("Falha ao transcrever o áudio.")
+def test_finish_with_error_notifies_and_returns_to_idle(tmp_path):
+    core, recorder, _, notes, notifier = make_core(
+        tmp_path,
+        transcription_error=TranscriptionError("Falha ao transcrever o áudio."),
     )
     recorder.audio_tmp.write_bytes(b"RIFF")
     core.toggle()
@@ -154,84 +155,84 @@ def test_finish_com_erro_notifica_e_volta_a_ocioso(tmp_path):
 
     core.finish_recording()
 
-    assert notifier.mensagens[-1] == ("Erro", "Falha ao transcrever o áudio.")
-    assert not notes.notes_dir.exists()  # nenhuma nota criada
-    assert not recorder.audio_tmp.exists()  # tmp limpo mesmo com erro
+    assert notifier.messages[-1] == ("Erro", "Falha ao transcrever o áudio.")
+    assert not notes.notes_dir.exists()  # no note created
+    assert not recorder.audio_tmp.exists()  # tmp cleaned even on error
     assert core.state is State.IDLE
 
 
-def test_shutdown_aborta_gravacao(tmp_path):
-    core, recorder, _, _, _ = monta_core(tmp_path)
+def test_shutdown_aborts_recording(tmp_path):
+    core, recorder, _, _, _ = make_core(tmp_path)
     core.toggle()
     core.shutdown()
-    assert recorder.abortado
+    assert recorder.aborted
     assert core.state is State.IDLE
 
 
-def test_read_current_note_toca_a_mais_recente(tmp_path):
-    momentos = iter([datetime(2026, 7, 22, 10, 0, 0),
-                     datetime(2026, 7, 22, 11, 0, 0)])
-    core, _, _, notes, _ = monta_core(tmp_path)
-    notes._now = lambda: next(momentos)
+def test_read_current_note_plays_the_most_recent(tmp_path):
+    moments = iter([datetime(2026, 7, 22, 10, 0, 0),
+                    datetime(2026, 7, 22, 11, 0, 0)])
+    core, _, _, notes, _ = make_core(tmp_path)
+    notes._now = lambda: next(moments)
     notes.save("nota antiga")
     notes.save("nota mais recente")
 
     core.read_current_note()
 
-    assert core._player.tocados == ["nota mais recente"]
+    assert core._player.played == ["nota mais recente"]
 
 
-def test_read_current_note_sem_notas_avisa(tmp_path):
-    core, _, _, _, notifier = monta_core(tmp_path)
+def test_read_current_note_without_notes_warns(tmp_path):
+    core, _, _, _, notifier = make_core(tmp_path)
     core.read_current_note()
-    assert notifier.mensagens == [
+    assert notifier.messages == [
         ("TTS", "Nenhuma nota disponível para ler.")
     ]
 
 
-def test_read_current_note_com_erro_do_player_notifica(tmp_path):
+def test_read_current_note_with_player_error_notifies(tmp_path):
     from tomenotas.domain.errors import PlayerError
 
-    core, _, _, notes, notifier = monta_core(
-        tmp_path, erro_player=PlayerError("Voz do Piper não encontrada: /x")
+    core, _, _, notes, notifier = make_core(
+        tmp_path, player_error=PlayerError("Voz do Piper não encontrada: /x")
     )
     notes.save("qualquer")
     core.read_current_note()
-    assert notifier.mensagens == [
+    assert notifier.messages == [
         ("Erro", "Voz do Piper não encontrada: /x")
     ]
 
 
-def test_mudancas_de_estado_notificam_o_observador(tmp_path):
-    core, _, _, _, _ = monta_core(tmp_path)
-    estados = []
-    core.on_state_change = estados.append
+def test_state_changes_notify_the_observer(tmp_path):
+    core, _, _, _, _ = make_core(tmp_path)
+    states = []
+    core.on_state_change = states.append
 
     core.toggle()            # idle -> recording
     core.toggle()            # recording -> transcribing
     core.finish_recording()  # transcribing -> idle
 
-    assert estados == [State.RECORDING, State.TRANSCRIBING, State.IDLE]
+    assert states == [State.RECORDING, State.TRANSCRIBING, State.IDLE]
 
 
-def test_estado_repetido_nao_renotifica(tmp_path):
-    core, _, _, _, _ = monta_core(tmp_path)
-    estados = []
-    core.on_state_change = estados.append
-    core.shutdown()  # já estava IDLE: nenhuma notificação
-    assert estados == []
+def test_repeated_state_does_not_renotify(tmp_path):
+    core, _, _, _, _ = make_core(tmp_path)
+    states = []
+    core.on_state_change = states.append
+    core.shutdown()  # was already IDLE: no notification
+    assert states == []
 
 
-def test_observador_e_notificado_no_shutdown_e_no_erro_de_start(tmp_path):
-    core, _, _, _, _ = monta_core(tmp_path, falha_no_start=True)
-    estados = []
-    core.on_state_change = estados.append
-    core.toggle()  # falha no arecord: permanece IDLE, sem notificação
-    assert estados == []
+def test_observer_is_notified_on_shutdown_and_start_error(tmp_path):
+    core, _, _, _, _ = make_core(tmp_path, fails_on_start=True)
+    states = []
+    core.on_state_change = states.append
+    core.toggle()  # arecord failure: stays IDLE, no notification
+    assert states == []
 
-    core2, _, _, _, _ = monta_core(tmp_path)
-    estados2 = []
-    core2.on_state_change = estados2.append
+    core2, _, _, _, _ = make_core(tmp_path)
+    states2 = []
+    core2.on_state_change = states2.append
     core2.toggle()
     core2.shutdown()
-    assert estados2 == [State.RECORDING, State.IDLE]
+    assert states2 == [State.RECORDING, State.IDLE]

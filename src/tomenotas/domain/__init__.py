@@ -1,5 +1,5 @@
-"""Camada de domínio: tipos e regras puras, zero I/O.
+"""Domain layer: pure types and rules, zero I/O.
 
-Não importa nada de app/, infra/ ou ui/ (regra imposta pelo
-tests/test_arquitetura.py).
+Imports nothing from app/, infra/ or ui/ (rule enforced by
+tests/test_architecture.py).
 """

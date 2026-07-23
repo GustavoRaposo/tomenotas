@@ -1,10 +1,13 @@
-"""Atalhos globais do GNOME via gsettings custom-keybindings.
+"""GNOME global shortcuts via gsettings custom-keybindings.
 
-Equivalente programático ao que o install.sh faz na instalação: registra
-os três atalhos (gravar/listar/ler) e permite trocá-los pela UI da Fase 3.
-Usa o CLI gsettings via subprocess injetável (mesmo padrão dos outros
-módulos), o que mantém a lógica — inclusive a detecção de conflitos —
-100% testável.
+Programmatic equivalent of what install.sh does at install time:
+registers the three shortcuts (record/list/read) and lets the Fase 3 UI
+change them. Uses the gsettings CLI through an injectable subprocess
+(same pattern as the other modules), which keeps the logic — including
+conflict detection — 100% testable.
+
+Note: the action ids ("gravar"/"listar"/"ler") are part of the gsettings
+paths persisted on users' systems (tomenotas-<id>/) — do not rename them.
 """
 
 import subprocess
@@ -15,8 +18,8 @@ SCHEMA = "org.gnome.settings-daemon.plugins.media-keys"
 CUSTOM_SCHEMA = SCHEMA + ".custom-keybinding"
 BASE_PATH = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings"
 
-# Onde procurar conflitos com atalhos do sistema ("quando possível detectar")
-SCHEMAS_DE_CONFLITO = [
+# Where to look for conflicts with system shortcuts ("when detectable")
+CONFLICT_SCHEMAS = [
     "org.gnome.desktop.wm.keybindings",
     "org.gnome.shell.keybindings",
     "org.gnome.mutter.keybindings",
@@ -26,38 +29,38 @@ SCHEMAS_DE_CONFLITO = [
 
 @dataclass(frozen=True)
 class Action:
-    id: str       # sufixo do path gsettings (tomenotas-<id>)
-    label: str    # "name" no gsettings
-    titulo: str   # rótulo exibido na UI
-    comando: str  # executável chamado pelo atalho
-    padrao: str   # binding padrão (o mesmo do install.sh)
+    id: str       # gsettings path suffix (tomenotas-<id>)
+    label: str    # "name" in gsettings
+    title: str    # label shown in the UI
+    command: str  # executable invoked by the shortcut
+    default: str  # default binding (same as install.sh)
 
 
-def _parse_lista(valor: str) -> list[str]:
-    """'@as []' / \"['/a/', '/b/']\" → lista de paths."""
-    valor = valor.strip()
-    if not valor or valor in ("@as []", "[]"):
+def _parse_list(value: str) -> list[str]:
+    """'@as []' / \"['/a/', '/b/']\" → list of paths."""
+    value = value.strip()
+    if not value or value in ("@as []", "[]"):
         return []
     return [
         item.strip().strip("'\"")
-        for item in valor.strip("[]").split(",")
+        for item in value.strip("[]").split(",")
         if item.strip()
     ]
 
 
-def _bindings_de(valor: str) -> list[str]:
-    """Extrai os bindings de um valor gsettings, que pode ser uma string
-    (\"'<Super>r'\") ou uma lista (\"['<Alt>F4', '<Super>r']\")."""
-    valor = valor.strip()
-    if valor.startswith("["):
-        return _parse_lista(valor)
-    return [valor.strip("'\"")] if valor.strip("'\"") else []
+def _bindings_from(value: str) -> list[str]:
+    """Extracts the bindings from a gsettings value, which can be a string
+    (\"'<Super>r'\") or a list (\"['<Alt>F4', '<Super>r']\")."""
+    value = value.strip()
+    if value.startswith("["):
+        return _parse_list(value)
+    return [value.strip("'\"")] if value.strip("'\"") else []
 
 
 class ShortcutManager:
     def __init__(self, bin_dir: Path, run=subprocess.run):
         self._run = run
-        self.acoes = {
+        self.actions = {
             "gravar": Action(
                 "gravar", "Tomenotas - Gravar", "Gravar/parar",
                 str(bin_dir / "tomenotas-hotkey-record"), "<Super>r",
@@ -73,66 +76,67 @@ class ShortcutManager:
         }
 
     def _out(self, *args: str) -> str:
-        resultado = self._run(
+        result = self._run(
             ["gsettings", *args],
             capture_output=True, text=True, check=False,
         )
-        return (resultado.stdout or "").strip()
+        return (result.stdout or "").strip()
 
-    def _path(self, acao_id: str) -> str:
-        return f"{BASE_PATH}/tomenotas-{acao_id}/"
+    def _path(self, action_id: str) -> str:
+        return f"{BASE_PATH}/tomenotas-{action_id}/"
 
-    def get_binding(self, acao_id: str) -> str:
-        bruto = self._out("get", f"{CUSTOM_SCHEMA}:{self._path(acao_id)}",
-                          "binding")
-        return bruto.strip("'\"")
+    def get_binding(self, action_id: str) -> str:
+        raw = self._out("get", f"{CUSTOM_SCHEMA}:{self._path(action_id)}",
+                        "binding")
+        return raw.strip("'\"")
 
-    def set_binding(self, acao_id: str, binding: str) -> None:
-        """Grava o atalho no GNOME — efeito imediato no teclado. Também
-        (re)grava name/command, o que torna a operação auto-reparadora."""
-        acao = self.acoes[acao_id]
-        alvo = f"{CUSTOM_SCHEMA}:{self._path(acao_id)}"
-        self._registra(self._path(acao_id))
-        self._out("set", alvo, "name", acao.label)
-        self._out("set", alvo, "command", acao.comando)
-        self._out("set", alvo, "binding", binding)
+    def set_binding(self, action_id: str, binding: str) -> None:
+        """Writes the shortcut to GNOME — immediate keyboard effect. Also
+        (re)writes name/command, which makes the operation self-repairing."""
+        action = self.actions[action_id]
+        target = f"{CUSTOM_SCHEMA}:{self._path(action_id)}"
+        self._register(self._path(action_id))
+        self._out("set", target, "name", action.label)
+        self._out("set", target, "command", action.command)
+        self._out("set", target, "binding", binding)
 
-    def _registra(self, path: str) -> None:
-        atual = self._out("get", SCHEMA, "custom-keybindings")
-        caminhos = _parse_lista(atual)
-        if path in caminhos:
+    def _register(self, path: str) -> None:
+        current = self._out("get", SCHEMA, "custom-keybindings")
+        paths = _parse_list(current)
+        if path in paths:
             return
-        caminhos.append(path)
-        novo = "[" + ", ".join(f"'{c}'" for c in caminhos) + "]"
-        self._out("set", SCHEMA, "custom-keybindings", novo)
+        paths.append(path)
+        new = "[" + ", ".join(f"'{p}'" for p in paths) + "]"
+        self._out("set", SCHEMA, "custom-keybindings", new)
 
     def list_conflicts(self, binding: str,
-                       ignorar_acao: str | None = None) -> list[str]:
-        """Descrições legíveis de quem já usa esse atalho (lista vazia se
-        ninguém). Compara bindings exatos, sem diferenciar caixa."""
-        alvo = binding.lower()
-        conflitos = []
+                       ignore_action: str | None = None) -> list[str]:
+        """Human-readable descriptions of whoever already uses this
+        shortcut (empty list if nobody). Compares exact bindings,
+        case-insensitively."""
+        target = binding.lower()
+        conflicts = []
 
-        for schema in SCHEMAS_DE_CONFLITO:
-            for linha in self._out("list-recursively", schema).splitlines():
-                partes = linha.split(None, 2)
-                if len(partes) < 3:
+        for schema in CONFLICT_SCHEMAS:
+            for line in self._out("list-recursively", schema).splitlines():
+                parts = line.split(None, 2)
+                if len(parts) < 3:
                     continue
-                _, chave, valor = partes
-                if chave == "custom-keybindings":
-                    continue  # é a lista de paths, não um binding
-                if alvo in (b.lower() for b in _bindings_de(valor)):
-                    conflitos.append(f"{chave} ({schema})")
+                _, key, value = parts
+                if key == "custom-keybindings":
+                    continue  # it's the path list, not a binding
+                if target in (b.lower() for b in _bindings_from(value)):
+                    conflicts.append(f"{key} ({schema})")
 
-        proprio = self._path(ignorar_acao) if ignorar_acao else None
-        lista = self._out("get", SCHEMA, "custom-keybindings")
-        for caminho in _parse_lista(lista):
-            if caminho == proprio:
+        own = self._path(ignore_action) if ignore_action else None
+        listing = self._out("get", SCHEMA, "custom-keybindings")
+        for path in _parse_list(listing):
+            if path == own:
                 continue
-            entrada = f"{CUSTOM_SCHEMA}:{caminho}"
-            b = self._out("get", entrada, "binding").strip("'\"")
-            if b and b.lower() == alvo:
-                nome = self._out("get", entrada, "name").strip("'\"")
-                conflitos.append(nome or caminho)
+            entry = f"{CUSTOM_SCHEMA}:{path}"
+            b = self._out("get", entry, "binding").strip("'\"")
+            if b and b.lower() == target:
+                name = self._out("get", entry, "name").strip("'\"")
+                conflicts.append(name or path)
 
-        return conflitos
+        return conflicts

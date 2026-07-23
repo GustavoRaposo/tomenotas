@@ -1,4 +1,5 @@
-"""Exceções do domínio — as mensagens são exibidas ao usuário como estão."""
+"""Domain exceptions — their messages are shown to the user as-is
+(hence in Portuguese)."""
 
 
 class RecorderError(Exception):

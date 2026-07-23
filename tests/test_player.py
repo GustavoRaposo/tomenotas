@@ -1,4 +1,5 @@
-"""Testes de tomenotas.player — síntese TTS (Piper) + reprodução (paplay)."""
+"""Tests for tomenotas.infra.player — TTS synthesis (Piper) + playback
+(paplay)."""
 
 from pathlib import Path
 
@@ -8,57 +9,57 @@ from tomenotas.domain.errors import PlayerError
 from tomenotas.infra.player import Player
 
 
-class PaplayFalso:
+class FakePaplay:
     def __init__(self):
-        self.terminado = False
-        self.encerrou = False
+        self.finished = False
+        self.terminated = False
 
     def poll(self):
-        return 0 if self.terminado else None
+        return 0 if self.finished else None
 
     def terminate(self):
-        self.encerrou = True
-        self.terminado = True
+        self.terminated = True
+        self.finished = True
 
     def wait(self, timeout=None):
         return 0
 
 
-def monta_player(tmp_path, sintetiza=True, piper_ausente=False,
-                 paplay_ausente=False, voz_ausente=False):
+def make_player(tmp_path, synthesizes=True, piper_missing=False,
+                paplay_missing=False, voice_missing=False):
     tts_tmp = tmp_path / "tmp_tts.wav"
-    voz = tmp_path / "voz.onnx"
-    if not voz_ausente:
-        voz.write_bytes(b"onnx")
-    execucoes = []
+    voice = tmp_path / "voz.onnx"
+    if not voice_missing:
+        voice.write_bytes(b"onnx")
+    runs = []
     spawns = []
-    paplay = PaplayFalso()
+    paplay = FakePaplay()
 
-    def run_falso(cmd, **kwargs):
-        execucoes.append((cmd, kwargs))
-        if piper_ausente:
+    def fake_run(cmd, **kwargs):
+        runs.append((cmd, kwargs))
+        if piper_missing:
             raise FileNotFoundError
-        if sintetiza:
+        if synthesizes:
             tts_tmp.write_bytes(b"RIFFdados")
 
-    def popen_falso(cmd):
+    def fake_popen(cmd):
         spawns.append(cmd)
-        if paplay_ausente:
+        if paplay_missing:
             raise FileNotFoundError
         return paplay
 
     player = Player(
-        Path("/p/piper"), voz, tts_tmp,
-        run=run_falso, popen=popen_falso,
+        Path("/p/piper"), voice, tts_tmp,
+        run=fake_run, popen=fake_popen,
     )
-    return player, execucoes, spawns, paplay, tts_tmp
+    return player, runs, spawns, paplay, tts_tmp
 
 
-def test_play_sintetiza_e_toca(tmp_path):
-    player, execucoes, spawns, _, tts_tmp = monta_player(tmp_path)
+def test_play_synthesizes_and_plays(tmp_path):
+    player, runs, spawns, _, tts_tmp = make_player(tmp_path)
     player.play("olá mundo")
 
-    (cmd, kwargs) = execucoes[0]
+    (cmd, kwargs) = runs[0]
     assert cmd == ["/p/piper", "--model", str(tmp_path / "voz.onnx"),
                    "--output_file", str(tts_tmp)]
     assert kwargs["input"] == "olá mundo".encode()
@@ -66,66 +67,66 @@ def test_play_sintetiza_e_toca(tmp_path):
     assert player.is_playing
 
 
-def test_play_com_texto_vazio_levanta_erro(tmp_path):
-    player, execucoes, _, _, _ = monta_player(tmp_path)
+def test_play_with_empty_text_raises(tmp_path):
+    player, runs, _, _, _ = make_player(tmp_path)
     with pytest.raises(PlayerError, match="nota está vazia"):
         player.play("   \n")
-    assert execucoes == []  # nem chegou a chamar o piper
+    assert runs == []  # never even called piper
 
 
-def test_piper_ausente_levanta_erro(tmp_path):
-    player, _, _, _, _ = monta_player(tmp_path, piper_ausente=True)
+def test_missing_piper_raises(tmp_path):
+    player, _, _, _, _ = make_player(tmp_path, piper_missing=True)
     with pytest.raises(PlayerError, match="Piper não encontrado"):
         player.play("texto")
     assert not player.is_playing
 
 
-def test_voz_ausente_tem_mensagem_especifica(tmp_path):
-    player, execucoes, _, _, _ = monta_player(tmp_path, voz_ausente=True)
+def test_missing_voice_has_specific_message(tmp_path):
+    player, runs, _, _, _ = make_player(tmp_path, voice_missing=True)
     with pytest.raises(PlayerError, match="Voz do Piper não encontrada"):
         player.play("texto")
-    assert execucoes == []  # nem tentou sintetizar
+    assert runs == []  # never even tried to synthesize
 
 
-def test_sintese_sem_saida_levanta_erro(tmp_path):
-    player, _, _, _, _ = monta_player(tmp_path, sintetiza=False)
+def test_synthesis_without_output_raises(tmp_path):
+    player, _, _, _, _ = make_player(tmp_path, synthesizes=False)
     with pytest.raises(PlayerError, match="Falha ao sintetizar"):
         player.play("texto")
 
 
-def test_paplay_ausente_levanta_erro_e_limpa_tmp(tmp_path):
-    player, _, _, _, tts_tmp = monta_player(tmp_path, paplay_ausente=True)
+def test_missing_paplay_raises_and_cleans_tmp(tmp_path):
+    player, _, _, _, tts_tmp = make_player(tmp_path, paplay_missing=True)
     with pytest.raises(PlayerError, match="paplay não encontrado"):
         player.play("texto")
     assert not tts_tmp.exists()
     assert not player.is_playing
 
 
-def test_stop_encerra_reproducao_e_limpa_tmp(tmp_path):
-    player, _, _, paplay, tts_tmp = monta_player(tmp_path)
+def test_stop_ends_playback_and_cleans_tmp(tmp_path):
+    player, _, _, paplay, tts_tmp = make_player(tmp_path)
     player.play("texto")
     player.stop()
-    assert paplay.encerrou
+    assert paplay.terminated
     assert not player.is_playing
     assert not tts_tmp.exists()
 
 
-def test_stop_sem_reproducao_nao_levanta_erro(tmp_path):
-    player, _, _, _, _ = monta_player(tmp_path)
-    player.stop()  # não deve levantar exceção
+def test_stop_without_playback_does_not_raise(tmp_path):
+    player, _, _, _, _ = make_player(tmp_path)
+    player.stop()  # must not raise
 
 
-def test_play_durante_reproducao_para_a_anterior(tmp_path):
-    player, _, spawns, paplay, _ = monta_player(tmp_path)
+def test_play_during_playback_stops_the_previous_one(tmp_path):
+    player, _, spawns, paplay, _ = make_player(tmp_path)
     player.play("primeira")
     player.play("segunda")
-    assert paplay.encerrou  # a primeira reprodução foi parada
+    assert paplay.terminated  # the first playback was stopped
     assert len(spawns) == 2
 
 
-def test_is_playing_reflete_fim_da_reproducao(tmp_path):
-    player, _, _, paplay, _ = monta_player(tmp_path)
+def test_is_playing_reflects_end_of_playback(tmp_path):
+    player, _, _, paplay, _ = make_player(tmp_path)
     player.play("texto")
     assert player.is_playing
-    paplay.terminado = True
+    paplay.finished = True
     assert not player.is_playing

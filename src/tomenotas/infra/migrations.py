@@ -1,12 +1,13 @@
-"""Migrations do banco de notas (estratégia detalhada no ROADMAP).
+"""Notes database migrations (strategy detailed in the ROADMAP).
 
-Regras:
-- Toda alteração de estrutura do banco entra como uma NOVA migration no
-  fim de MIGRATIONS; migrations publicadas são imutáveis.
-- A versão aplicada fica no próprio banco (PRAGMA user_version).
-- apply_migrations aplica só as pendentes, cada uma numa transação: ou
-  aplica inteira, ou faz rollback e nada muda. Antes de atualizar um banco
-  existente, o arquivo ganha um backup (mantidos os últimos N).
+Rules:
+- Every schema change enters as a NEW migration appended to MIGRATIONS;
+  published migrations are immutable.
+- The applied version lives in the database itself (PRAGMA user_version).
+- apply_migrations applies only the pending ones, each in its own
+  transaction: either it applies fully, or it rolls back and nothing
+  changes. Before upgrading an existing database, the file gets a backup
+  (the last N are kept).
 """
 
 import logging
@@ -21,19 +22,19 @@ from ..domain.errors import MigrationError
 
 log = logging.getLogger("tomenotas.migrations")
 
-BACKUPS_MANTIDOS = 3
+BACKUPS_KEPT = 3
 
 
 @dataclass(frozen=True)
 class Migration:
     version: int
-    descricao: str
+    description: str
     apply: Callable[[sqlite3.Connection], None]
 
 
-def _v1_esquema_inicial(conn: sqlite3.Connection) -> None:
-    # Sem executescript: ele daria COMMIT implícito e quebraria a transação
-    comandos = [
+def _v1_initial_schema(conn: sqlite3.Connection) -> None:
+    # No executescript: it would COMMIT implicitly and break the transaction
+    commands = [
         """CREATE TABLE notes (
                id         INTEGER PRIMARY KEY,
                created_at TEXT    NOT NULL,
@@ -62,19 +63,19 @@ def _v1_esquema_inicial(conn: sqlite3.Connection) -> None:
                INSERT INTO notes_fts(rowid, text) VALUES (new.id, new.text);
            END""",
     ]
-    for comando in comandos:
-        conn.execute(comando)
+    for command in commands:
+        conn.execute(command)
 
 
-def _v2_coluna_filename(conn: sqlite3.Connection) -> None:
-    # Espelho .txt: mapeia cada nota ao arquivo em notes/ (scripts legados)
+def _v2_filename_column(conn: sqlite3.Connection) -> None:
+    # .txt mirror: maps each note to its file in notes/ (legacy scripts)
     conn.execute("ALTER TABLE notes ADD COLUMN filename TEXT")
 
 
 MIGRATIONS = [
-    Migration(1, "esquema inicial (notes, tags, note_tags, FTS5)",
-              _v1_esquema_inicial),
-    Migration(2, "coluna filename para o espelho .txt", _v2_coluna_filename),
+    Migration(1, "initial schema (notes, tags, note_tags, FTS5)",
+              _v1_initial_schema),
+    Migration(2, "filename column for the .txt mirror", _v2_filename_column),
 ]
 
 SCHEMA_VERSION = MIGRATIONS[-1].version
@@ -82,47 +83,47 @@ SCHEMA_VERSION = MIGRATIONS[-1].version
 
 def apply_migrations(conn: sqlite3.Connection, db_path: Path | None = None,
                      migrations=None, now=datetime.now) -> list[int]:
-    """Aplica as migrations pendentes; devolve as versões aplicadas."""
+    """Applies the pending migrations; returns the applied versions."""
     migrations = MIGRATIONS if migrations is None else migrations
-    atual = conn.execute("PRAGMA user_version").fetchone()[0]
-    pendentes = [m for m in migrations if m.version > atual]
-    if not pendentes:
+    current = conn.execute("PRAGMA user_version").fetchone()[0]
+    pending = [m for m in migrations if m.version > current]
+    if not pending:
         return []
 
-    # Backup antes de atualizar um banco que já existia (versão > 0)
-    if db_path is not None and atual > 0 and Path(db_path).exists():
-        _backup(Path(db_path), atual, now())
+    # Backup before upgrading a pre-existing database (version > 0)
+    if db_path is not None and current > 0 and Path(db_path).exists():
+        _backup(Path(db_path), current, now())
 
-    aplicadas = []
-    isolation_anterior = conn.isolation_level
-    conn.isolation_level = None  # transações controladas manualmente
+    applied = []
+    previous_isolation = conn.isolation_level
+    conn.isolation_level = None  # transactions handled manually
     try:
-        for migration in pendentes:
+        for migration in pending:
             try:
                 conn.execute("BEGIN")
                 migration.apply(conn)
                 conn.execute(f"PRAGMA user_version = {int(migration.version)}")
                 conn.execute("COMMIT")
-            except Exception as erro:
+            except Exception as error:
                 conn.execute("ROLLBACK")
                 raise MigrationError(
                     f"Falha ao migrar o banco de notas para a versão "
-                    f"{migration.version} ({migration.descricao}): {erro}. "
+                    f"{migration.version} ({migration.description}): {error}. "
                     f"Nenhum dado foi alterado."
-                ) from erro
-            log.info("migration %d aplicada: %s",
-                     migration.version, migration.descricao)
-            aplicadas.append(migration.version)
+                ) from error
+            log.info("migration %d applied: %s",
+                     migration.version, migration.description)
+            applied.append(migration.version)
     finally:
-        conn.isolation_level = isolation_anterior
-    return aplicadas
+        conn.isolation_level = previous_isolation
+    return applied
 
 
-def _backup(db_path: Path, versao: int, agora: datetime) -> None:
-    nome = f"{db_path.name}.bak-v{versao}-{agora.strftime('%Y%m%d-%H%M%S')}"
-    shutil.copy2(db_path, db_path.with_name(nome))
-    log.info("backup do banco criado: %s", nome)
+def _backup(db_path: Path, version: int, now: datetime) -> None:
+    name = f"{db_path.name}.bak-v{version}-{now.strftime('%Y%m%d-%H%M%S')}"
+    shutil.copy2(db_path, db_path.with_name(name))
+    log.info("database backup created: %s", name)
     backups = sorted(db_path.parent.glob(db_path.name + ".bak-*"))
-    for velho in backups[:-BACKUPS_MANTIDOS]:
-        velho.unlink()
-        log.info("backup antigo removido: %s", velho.name)
+    for old in backups[:-BACKUPS_KEPT]:
+        old.unlink()
+        log.info("old backup removed: %s", old.name)

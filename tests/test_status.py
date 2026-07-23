@@ -1,36 +1,36 @@
-"""Testes de tomenotas.status — mapeamento estado → ícone/tooltip e pulso."""
+"""Tests for tomenotas.domain.state — state → icon/tooltip mapping and pulse."""
 
-from tomenotas.domain.state import Pulsador, State, icone, pulsa, tooltip
-
-
-def test_icones_por_estado():
-    assert icone(State.IDLE) == "tomenotas-idle"
-    assert icone(State.RECORDING) == "tomenotas-recording"
-    assert icone(State.TRANSCRIBING) == "tomenotas-transcribing"
+from tomenotas.domain.state import Pulser, State, icon, pulses, tooltip
 
 
-def test_tooltips_por_estado():
+def test_icons_per_state():
+    assert icon(State.IDLE) == "tomenotas-idle"
+    assert icon(State.RECORDING) == "tomenotas-recording"
+    assert icon(State.TRANSCRIBING) == "tomenotas-transcribing"
+
+
+def test_tooltips_per_state():
     assert tooltip(State.IDLE) == "Ocioso"
     assert tooltip(State.RECORDING) == "Gravando..."
     assert tooltip(State.TRANSCRIBING) == "Transcrevendo..."
 
 
-def test_pulsa_somente_em_atividade():
-    assert not pulsa(State.IDLE)
-    assert pulsa(State.RECORDING)
-    assert pulsa(State.TRANSCRIBING)
+def test_pulses_only_while_active():
+    assert not pulses(State.IDLE)
+    assert pulses(State.RECORDING)
+    assert pulses(State.TRANSCRIBING)
 
 
-def test_pulsador_alterna_entre_forte_e_apagado():
-    p = Pulsador()
-    assert p.proximo(State.RECORDING) == "tomenotas-recording-dim"
-    assert p.proximo(State.RECORDING) == "tomenotas-recording"
-    assert p.proximo(State.RECORDING) == "tomenotas-recording-dim"
+def test_pulser_alternates_between_strong_and_dim():
+    p = Pulser()
+    assert p.next_icon(State.RECORDING) == "tomenotas-recording-dim"
+    assert p.next_icon(State.RECORDING) == "tomenotas-recording"
+    assert p.next_icon(State.RECORDING) == "tomenotas-recording-dim"
 
 
-def test_pulsador_em_estado_sem_pulso_reseta_e_devolve_o_principal():
-    p = Pulsador()
-    p.proximo(State.TRANSCRIBING)  # entra na variante apagada
-    assert p.proximo(State.IDLE) == "tomenotas-idle"
-    # resetou: a próxima alternância recomeça pela variante apagada
-    assert p.proximo(State.RECORDING) == "tomenotas-recording-dim"
+def test_pulser_resets_on_non_pulsing_state_and_returns_the_main_icon():
+    p = Pulser()
+    p.next_icon(State.TRANSCRIBING)  # enters the dim variant
+    assert p.next_icon(State.IDLE) == "tomenotas-idle"
+    # reset: the next alternation starts again at the dim variant
+    assert p.next_icon(State.RECORDING) == "tomenotas-recording-dim"

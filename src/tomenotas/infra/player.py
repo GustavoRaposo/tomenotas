@@ -1,8 +1,8 @@
-"""Reprodução de notas em voz alta: síntese com Piper + playback com paplay.
+"""Reads notes aloud: synthesis with Piper + playback with paplay.
 
-Espelha o fluxo do ler.sh: texto → piper (gera .wav temporário) → paplay.
-A síntese é síncrona (bloqueia) — a camada de cola roda play() numa thread
-para não travar a UI, como faz com a transcrição.
+Mirrors the old ler.sh flow: text → piper (writes a temporary .wav) →
+paplay. Synthesis is synchronous (blocks) — the glue layer runs play()
+in a thread to keep the UI responsive, as it does with transcription.
 """
 
 import subprocess
@@ -31,10 +31,10 @@ class Player:
     def is_playing(self) -> bool:
         return self._proc is not None and self._proc.poll() is None
 
-    def play(self, texto: str) -> None:
-        """Sintetiza o texto e inicia a reprodução (parando a anterior).
-        Levanta PlayerError com mensagem pronta para o usuário."""
-        if not texto.strip():
+    def play(self, text: str) -> None:
+        """Synthesizes the text and starts playback (stopping any
+        previous one). Raises PlayerError with a user-ready message."""
+        if not text.strip():
             raise PlayerError("A nota está vazia.")
         if not self._piper_model.exists():
             raise PlayerError(
@@ -50,7 +50,7 @@ class Player:
         try:
             self._run(
                 cmd,
-                input=texto.encode(),
+                input=text.encode(),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
@@ -70,7 +70,7 @@ class Player:
             )
 
     def stop(self) -> None:
-        """Para a reprodução atual (se houver) e limpa o .wav temporário."""
+        """Stops the current playback (if any) and cleans the temp .wav."""
         if self.is_playing:
             self._proc.terminate()
             self._proc.wait(timeout=3)

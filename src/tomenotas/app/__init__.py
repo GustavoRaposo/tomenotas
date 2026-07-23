@@ -1,4 +1,4 @@
-"""Camada de aplicação: casos de uso que orquestram ports injetados.
+"""Application layer: use cases that orchestrate injected ports.
 
-Só pode importar domain/ (regra imposta pelo tests/test_arquitetura.py).
+May only import domain/ (rule enforced by tests/test_architecture.py).
 """

@@ -8,9 +8,14 @@ Tomenotas — a personal voice-notes assistant for Ubuntu/GNOME, implemented as 
 Python package (`src/tomenotas/`: daemon with tray icon, D-Bus, recording,
 notes UI) plus thin bash D-Bus clients for the hotkeys, and an
 installer/uninstaller. The Python side is a proper package (pyproject.toml,
-pytest, 90% coverage gate on the core). All
-comments, `notify-send` messages, and user-facing strings are in Portuguese —
-keep new code consistent with that.
+pytest, 90% coverage gate on the core). **Language convention:** the `.py`
+code is developed in English — identifiers, docstrings, comments, test names
+and log messages. User-visible strings stay in Portuguese: `notify-send`
+titles/bodies, window labels and dialogs, and error messages shown to the
+user (the `domain/errors.py` exception messages are displayed as-is, so
+they are Portuguese too). Keep new code consistent with that. Exception:
+the action ids `gravar`/`listar`/`ler` and their `tomenotas-<id>` gsettings
+paths are persisted on users' systems — never rename them.
 
 There is no cloud/API/LLM involved anywhere in this project by design (see README):
 speech-to-text and text-to-speech both run fully offline via local binaries. Don't
@@ -23,15 +28,15 @@ clients that die silently when it isn't running:
 
 - **`src/tomenotas/`** — the daemon package, organized in lightweight
   clean-architecture layers. **Dependency rule (enforced by
-  `tests/test_arquitetura.py` — the suite fails on violations):**
+  `tests/test_architecture.py` — the suite fails on violations):**
   `domain` imports nothing internal; `app` may import only `domain`;
   `infra` may import only `domain`; `ui` may import everything; `gi`
   (GTK) is only allowed inside `ui/`. New code goes in the innermost
   layer that can hold it.
   - **`domain/`** — pure types and rules, zero I/O: `note.py` (`DbNote`,
     `preview`), `state.py` (`State`, `ToggleAction`, tray icon/tooltip
-    mapping + `Pulsador` — AppIndicator can't animate, so pulse alternates
-    strong/dim variants), `periodo.py` (`periodo_desde` for the UI period
+    mapping + `Pulser` — AppIndicator can't animate, so pulse alternates
+    strong/dim variants), `period.py` (`period_since` for the UI period
     filter) and `errors.py` (user-facing exceptions:
     `TranscriptionError`, `PlayerError`, `RecorderError`,
     `MigrationError`).
@@ -139,7 +144,7 @@ The coverage gate (`--cov-fail-under=90`, configured in pyproject.toml) makes
 omitted from the metric on purpose — do not "fix" coverage by adding
 mock-heavy tests for it, and do not grow logic inside it: put logic in
 `domain`/`app`/`infra` (tested) and keep the glue delegating. The layer
-dependency rule is enforced by `tests/test_arquitetura.py`.
+dependency rule is enforced by `tests/test_architecture.py`.
 
 **Bash scripts + the glue layer:** no automated harness. To validate, install
 and exercise the real keyboard-driven flow:

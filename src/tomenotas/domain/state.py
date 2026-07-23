@@ -1,9 +1,9 @@
-"""Estados do daemon e o mapeamento estado → ícone/tooltip da bandeja.
+"""Daemon states and the state → tray icon/tooltip mapping.
 
-Os nomes de ícone referem-se aos SVGs em assets/icons/ (instalados pelo
-install.sh em ~/.local/share/tomenotas/icons/). AppIndicator não anima
-ícones, então o efeito de "pulsar" é simulado alternando entre a variante
-forte e a apagada a cada tick (GLib.timeout_add na cola).
+Icon names refer to the SVGs in assets/icons/ (installed by install.sh
+into ~/.local/share/tomenotas/icons/). AppIndicator cannot animate
+icons, so the "pulse" effect is simulated by alternating between the
+strong and the dim variant on every tick (GLib.timeout_add in the glue).
 """
 
 from enum import Enum, auto
@@ -16,8 +16,8 @@ class State(Enum):
 
 
 class ToggleAction(Enum):
-    """O que o toggle fez — a cola usa isso para decidir o próximo passo
-    (STOP_REQUESTED → rodar finish_recording() numa thread)."""
+    """What the toggle did — the glue uses this to decide the next step
+    (STOP_REQUESTED → run finish_recording() in a thread)."""
 
     STARTED = auto()
     STOP_REQUESTED = auto()
@@ -25,7 +25,7 @@ class ToggleAction(Enum):
     FAILED = auto()
 
 
-# estado -> (ícone principal, variante apagada do pulso ou None, tooltip)
+# state -> (main icon, dim pulse variant or None, tooltip)
 _INFO = {
     State.IDLE: ("tomenotas-idle", None, "Ocioso"),
     State.RECORDING: (
@@ -38,28 +38,28 @@ _INFO = {
 }
 
 
-def icone(estado: State) -> str:
-    return _INFO[estado][0]
+def icon(state: State) -> str:
+    return _INFO[state][0]
 
 
-def tooltip(estado: State) -> str:
-    return _INFO[estado][2]
+def tooltip(state: State) -> str:
+    return _INFO[state][2]
 
 
-def pulsa(estado: State) -> bool:
-    return _INFO[estado][1] is not None
+def pulses(state: State) -> bool:
+    return _INFO[state][1] is not None
 
 
-class Pulsador:
-    """Alterna forte/apagado a cada chamada; estados sem pulso resetam."""
+class Pulser:
+    """Alternates strong/dim on each call; non-pulsing states reset it."""
 
     def __init__(self):
-        self._apagado = False
+        self._dim = False
 
-    def proximo(self, estado: State) -> str:
-        principal, apagado, _ = _INFO[estado]
-        if apagado is None:
-            self._apagado = False
-            return principal
-        self._apagado = not self._apagado
-        return apagado if self._apagado else principal
+    def next_icon(self, state: State) -> str:
+        main, dim, _ = _INFO[state]
+        if dim is None:
+            self._dim = False
+            return main
+        self._dim = not self._dim
+        return dim if self._dim else main

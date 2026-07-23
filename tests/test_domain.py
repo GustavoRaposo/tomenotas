@@ -1,19 +1,19 @@
-"""Testes de tomenotas.domain — regras puras."""
+"""Tests for tomenotas.domain — pure rules."""
 
 from datetime import datetime
 
 from tomenotas.domain.note import preview
-from tomenotas.domain.periodo import periodo_desde
+from tomenotas.domain.period import period_since
 
 
-def test_preview_trunca_em_60_caracteres():
+def test_preview_truncates_at_60_chars():
     assert preview("a" * 100) == "a" * 60
     assert preview("curta") == "curta"
 
 
-def test_preview_e_sempre_uma_linha_so():
-    # quebras de linha e espaços repetidos viram um espaço simples —
-    # os itens da lista de notas devem ter altura padrão
+def test_preview_is_always_a_single_line():
+    # newlines and repeated whitespace become a single space — note list
+    # items must keep a uniform height
     assert preview("linha um\nlinha dois\n\nlinha três") == (
         "linha um linha dois linha três"
     )
@@ -21,14 +21,14 @@ def test_preview_e_sempre_uma_linha_so():
     assert len(preview(("palavra\n" * 30))) == 60
 
 
-def test_periodo_desde_traduz_os_atalhos_da_ui():
-    agora = datetime(2026, 7, 23, 14, 30, 45)
-    assert periodo_desde("hoje", agora) == "2026-07-23T00:00:00"
-    assert periodo_desde("7dias", agora) == "2026-07-16T14:30:45"
-    assert periodo_desde("30dias", agora) == "2026-06-23T14:30:45"
-    assert periodo_desde("", agora) is None
-    assert periodo_desde("qualquer-coisa", agora) is None
+def test_period_since_translates_the_ui_shortcuts():
+    now = datetime(2026, 7, 23, 14, 30, 45)
+    assert period_since("today", now) == "2026-07-23T00:00:00"
+    assert period_since("7days", now) == "2026-07-16T14:30:45"
+    assert period_since("30days", now) == "2026-06-23T14:30:45"
+    assert period_since("", now) is None
+    assert period_since("anything-else", now) is None
 
 
-def test_periodo_desde_sem_relogio_usa_agora():
-    assert periodo_desde("hoje").endswith("T00:00:00")
+def test_period_since_without_clock_uses_now():
+    assert period_since("today").endswith("T00:00:00")

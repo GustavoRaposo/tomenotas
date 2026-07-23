@@ -165,7 +165,7 @@ organizado em camadas (Clean Architecture leve): `domain/` (regras puras),
 `app/` (casos de uso), `infra/` (adaptadores de I/O) e `ui/` (cola
 GTK/D-Bus, fina, fora da métrica de cobertura). O gate de cobertura é 90%
 (`pytest` falha abaixo disso) e a regra de dependência entre camadas é
-imposta por `tests/test_arquitetura.py`.
+imposta por `tests/test_architecture.py`.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate

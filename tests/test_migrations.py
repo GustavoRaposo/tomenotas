@@ -1,4 +1,5 @@
-"""Testes de tomenotas.migrations — versionamento do esquema sem perda."""
+"""Tests for tomenotas.infra.migrations — schema versioning without data
+loss."""
 
 import sqlite3
 from datetime import datetime
@@ -13,19 +14,19 @@ from tomenotas.infra.migrations import (
     apply_migrations,
 )
 
-RELOGIO = lambda: datetime(2026, 7, 23, 1, 2, 3)  # noqa: E731
+CLOCK = lambda: datetime(2026, 7, 23, 1, 2, 3)  # noqa: E731
 
 
-def versao(conn):
+def version(conn):
     return conn.execute("PRAGMA user_version").fetchone()[0]
 
 
-def test_banco_novo_aplica_todas_e_registra_versao():
+def test_new_database_applies_all_and_records_version():
     conn = sqlite3.connect(":memory:")
-    aplicadas = apply_migrations(conn)
-    assert aplicadas == [m.version for m in MIGRATIONS]
-    assert versao(conn) == SCHEMA_VERSION
-    # o esquema final existe de verdade
+    applied = apply_migrations(conn)
+    assert applied == [m.version for m in MIGRATIONS]
+    assert version(conn) == SCHEMA_VERSION
+    # the final schema really exists
     conn.execute(
         "INSERT INTO notes (created_at, text, favorite, filename) "
         "VALUES ('2026-07-23T00:00:00', 'olá', 0, 'a.txt')"
@@ -33,89 +34,89 @@ def test_banco_novo_aplica_todas_e_registra_versao():
     conn.close()
 
 
-def test_reaplicar_e_idempotente():
+def test_reapplying_is_idempotent():
     conn = sqlite3.connect(":memory:")
     apply_migrations(conn)
     assert apply_migrations(conn) == []
-    assert versao(conn) == SCHEMA_VERSION
+    assert version(conn) == SCHEMA_VERSION
     conn.close()
 
 
-def test_banco_antigo_migra_preservando_dados():
+def test_old_database_migrates_preserving_data():
     conn = sqlite3.connect(":memory:")
-    # instala só a v1 (esquema inicial, sem a coluna filename) e popula
+    # installs only v1 (initial schema, no filename column) and populates
     apply_migrations(conn, migrations=MIGRATIONS[:1])
-    assert versao(conn) == 1
+    assert version(conn) == 1
     conn.execute(
         "INSERT INTO notes (created_at, text, favorite) "
         "VALUES ('2026-07-22T10:00:00', 'nota antiga', 1)"
     )
     conn.commit()
 
-    aplicadas = apply_migrations(conn)  # atualização do programa
+    applied = apply_migrations(conn)  # program upgrade
 
-    assert aplicadas == [m.version for m in MIGRATIONS[1:]]
-    assert versao(conn) == SCHEMA_VERSION
-    linha = conn.execute(
+    assert applied == [m.version for m in MIGRATIONS[1:]]
+    assert version(conn) == SCHEMA_VERSION
+    row = conn.execute(
         "SELECT text, favorite, filename FROM notes"
     ).fetchone()
-    assert linha == ("nota antiga", 1, None)  # nada se perdeu
+    assert row == ("nota antiga", 1, None)  # nothing was lost
     conn.close()
 
 
-def test_migration_que_falha_faz_rollback():
+def test_failing_migration_rolls_back():
     conn = sqlite3.connect(":memory:")
     apply_migrations(conn)
 
-    def quebra(c):
+    def breaks(c):
         c.execute("INSERT INTO tags (name) VALUES ('antes-da-falha')")
         c.execute("ISSO NAO E SQL")
 
-    ruins = MIGRATIONS + [Migration(99, "quebra no meio", quebra)]
+    bad = MIGRATIONS + [Migration(99, "breaks midway", breaks)]
     with pytest.raises(MigrationError, match="99"):
-        apply_migrations(conn, migrations=ruins)
+        apply_migrations(conn, migrations=bad)
 
-    assert versao(conn) == SCHEMA_VERSION  # versão não avançou
+    assert version(conn) == SCHEMA_VERSION  # version did not advance
     assert conn.execute("SELECT COUNT(*) FROM tags").fetchone()[0] == 0
     conn.close()
 
 
-def test_atualizacao_faz_backup_do_arquivo(tmp_path):
+def test_upgrade_backs_up_the_file(tmp_path):
     db = tmp_path / "notes.db"
     conn = sqlite3.connect(db)
-    apply_migrations(conn, db_path=db, migrations=MIGRATIONS[:1], now=RELOGIO)
+    apply_migrations(conn, db_path=db, migrations=MIGRATIONS[:1], now=CLOCK)
     conn.close()
 
     conn = sqlite3.connect(db)
-    apply_migrations(conn, db_path=db, now=RELOGIO)
+    apply_migrations(conn, db_path=db, now=CLOCK)
 
     backups = list(tmp_path.glob("notes.db.bak-*"))
     assert len(backups) == 1
-    assert "bak-v1-" in backups[0].name  # versão de onde partiu
+    assert "bak-v1-" in backups[0].name  # version it started from
     conn.close()
 
 
-def test_banco_novo_nao_gera_backup(tmp_path):
+def test_new_database_creates_no_backup(tmp_path):
     db = tmp_path / "notes.db"
     conn = sqlite3.connect(db)
-    apply_migrations(conn, db_path=db, now=RELOGIO)
+    apply_migrations(conn, db_path=db, now=CLOCK)
     assert list(tmp_path.glob("notes.db.bak-*")) == []
     conn.close()
 
 
-def test_backups_antigos_sao_podados(tmp_path):
+def test_old_backups_are_pruned(tmp_path):
     db = tmp_path / "notes.db"
-    for sufixo in ["v1-20260101-000000", "v1-20260102-000000",
+    for suffix in ["v1-20260101-000000", "v1-20260102-000000",
                    "v1-20260103-000000"]:
-        (tmp_path / f"notes.db.bak-{sufixo}").write_bytes(b"velho")
+        (tmp_path / f"notes.db.bak-{suffix}").write_bytes(b"velho")
 
     conn = sqlite3.connect(db)
-    apply_migrations(conn, db_path=db, migrations=MIGRATIONS[:1], now=RELOGIO)
+    apply_migrations(conn, db_path=db, migrations=MIGRATIONS[:1], now=CLOCK)
     conn.close()
     conn = sqlite3.connect(db)
-    apply_migrations(conn, db_path=db, now=RELOGIO)  # gera o 4º backup
+    apply_migrations(conn, db_path=db, now=CLOCK)  # creates the 4th backup
 
     conn.close()
     backups = sorted(p.name for p in tmp_path.glob("notes.db.bak-*"))
-    assert len(backups) == 3  # mantém só os 3 mais recentes
+    assert len(backups) == 3  # keeps only the 3 most recent
     assert "notes.db.bak-v1-20260101-000000" not in backups
