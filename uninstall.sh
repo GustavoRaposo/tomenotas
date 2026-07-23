@@ -48,6 +48,13 @@ print(result)
     fi
 fi
 
+# limpa também as chaves de cada atalho (senão ficam órfãs no dconf)
+for key in "$KEY_GRAVAR" "$KEY_LISTAR" "$KEY_LER"; do
+    gsettings reset-recursively \
+        "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:$key" \
+        2>/dev/null
+done
+
 echo "==> Encerrando o daemon, se estiver rodando..."
 pkill -f "$BIN_DIR/tomenotas-daemon" 2>/dev/null
 

@@ -177,6 +177,23 @@ def test_ensure_defaults_is_idempotent():
     assert manager.ensure_defaults() == []  # second run: nothing to do
 
 
+def test_ensure_defaults_relists_orphan_binding_keeping_its_value():
+    # uninstall.sh removes the paths from the custom-keybindings list but
+    # dconf may keep the per-path keys: the binding "exists" yet GNOME
+    # ignores it. ensure_defaults must re-list it, preserving the value
+    # the user had (not the default).
+    gs = FakeGsettings(
+        listing="@as []",  # nothing listed...
+        entries={RECORD_PATH: {"binding": "'<Super>F9'"}},  # ...but set
+    )
+    manager = ShortcutManager(BIN, run=gs)
+    registered = manager.ensure_defaults()
+
+    assert registered == ["gravar", "listar", "ler"]
+    assert RECORD_PATH in gs.listing
+    assert manager.get_binding("gravar") == "<Super>F9"  # value kept
+
+
 def test_scan_tolerates_varied_gsettings_formats():
     gs = FakeGsettings(recursive={
         # a string value (not a list), a short line and the

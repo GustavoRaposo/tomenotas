@@ -101,17 +101,22 @@ class ShortcutManager:
         self._out("set", target, "binding", binding)
 
     def ensure_defaults(self) -> list[str]:
-        """First-run (Fase B): registers the default binding of every
-        action that has none yet. Never touches an existing binding (the
-        user may have customized it). The .deb cannot do this at install
-        time — postinst runs as root and gsettings is per-user — so the
-        daemon calls this on startup; it is a no-op afterwards. Returns
-        the ids of the actions registered."""
+        """First-run (Fase B): makes sure every action is registered and
+        has a binding. Missing binding → register the default; binding
+        set but path absent from the custom-keybindings list (dconf
+        leftover after an uninstall) → re-list it keeping the user's
+        value. Never changes an active binding. The .deb cannot do this
+        at install time — postinst runs as root and gsettings is
+        per-user — so the daemon calls this on startup; it is a no-op
+        afterwards. Returns the ids of the actions (re)registered."""
+        listed = _parse_list(self._out("get", SCHEMA, "custom-keybindings"))
         registered = []
         for action_id, action in self.actions.items():
-            if not self.get_binding(action_id):
-                self.set_binding(action_id, action.default)
-                registered.append(action_id)
+            binding = self.get_binding(action_id)
+            if binding and self._path(action_id) in listed:
+                continue  # active and listed: leave it alone
+            self.set_binding(action_id, binding or action.default)
+            registered.append(action_id)
         return registered
 
     def _register(self, path: str) -> None:

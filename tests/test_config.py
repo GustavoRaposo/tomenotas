@@ -6,7 +6,11 @@ from pathlib import Path
 from tomenotas.infra.config import Config
 
 
-def test_defaults_derive_from_base_dir():
+def test_defaults_derive_from_base_dir(tmp_path, monkeypatch):
+    from tomenotas.infra import config as config_mod
+
+    # neutralize the .deb layout: this machine may have it installed
+    monkeypatch.setattr(config_mod, "SYSTEM_SHARE_DIR", tmp_path / "nada")
     cfg = Config(base_dir=Path("/x/dados"))
     assert cfg.notes_dir == Path("/x/dados/notes")
     assert cfg.audio_tmp == Path("/x/dados/tmp_recording.wav")
