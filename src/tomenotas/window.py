@@ -1,6 +1,6 @@
 """Janela principal do Tomenotas, com sidebar de seções:
 
-- Notas: lista com busca FTS, chips de tags, favoritos, período, tocar,
+- Notas: lista com busca FTS, dropdown de tags, favoritos, período, tocar,
   favoritar, taguear e apagar.
 - Tags: CRUD de tags (criar, listar com contagem, renomear, apagar).
 - Configurações: atalhos de teclado (SettingsPage).
@@ -312,7 +312,7 @@ class NotesWindow(Gtk.Window):
             self._store.add_tag(nota.id, nome)
         else:
             self._store.remove_tag(nota.id, nome)
-        GLib.idle_add(self.refresh)  # atualiza chips e o 🏷 da linha
+        GLib.idle_add(self.refresh)  # atualiza o dropdown e o 🏷 da linha
 
     def _on_nova_tag_da_nota(self, _botao, nota, entrada):
         nome = entrada.get_text().strip()
