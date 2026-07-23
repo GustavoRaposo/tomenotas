@@ -86,7 +86,9 @@ O instalador:
 3. Menu da bandeja → **Configurações** → troque os 3 atalhos: clique no
    campo, pressione a nova combinação e pronto (efeito imediato; avisa se a
    combinação já estiver em uso por outro app).
-4. **Super+L** → escolhe uma nota na lista (fluxo alternativo via zenity).
+4. **Super+L** → abre a mesma janela de notas (só funciona com o daemon
+   rodando). Atenção: em muitos GNOME, Super+L já bloqueia a tela — se for
+   o seu caso, troque a combinação em Configurações.
 5. **Super+T** → ouve a nota selecionada.
 
 Se algum atalho já estiver em uso por outro programa, ajuste em
@@ -100,6 +102,7 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ~/bin/ler.sh
 ~/bin/tomenotas-daemon          # daemon (link para o venv abaixo)
 ~/bin/tomenotas-hotkey-record   # cliente D-Bus chamado pelo Super+R
+~/bin/tomenotas-hotkey-window   # cliente D-Bus chamado pelo Super+L
 ~/.config/tomenotas/config.json # caminhos do whisper (lidos pelo daemon)
 ~/.local/share/tomenotas/
 ├── venv/               # pacote Python do daemon

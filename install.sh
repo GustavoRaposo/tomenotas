@@ -56,8 +56,9 @@ cp "$SCRIPT_DIR/gravar.sh" "$BIN_DIR/gravar.sh"
 cp "$SCRIPT_DIR/listar.sh" "$BIN_DIR/listar.sh"
 cp "$SCRIPT_DIR/ler.sh" "$BIN_DIR/ler.sh"
 cp "$SCRIPT_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-record"
+cp "$SCRIPT_DIR/tomenotas-hotkey-window" "$BIN_DIR/tomenotas-hotkey-window"
 chmod +x "$BIN_DIR/gravar.sh" "$BIN_DIR/listar.sh" "$BIN_DIR/ler.sh" \
-    "$BIN_DIR/tomenotas-hotkey-record"
+    "$BIN_DIR/tomenotas-hotkey-record" "$BIN_DIR/tomenotas-hotkey-window"
 
 echo "==> Instalando o daemon (pacote Python em venv)..."
 VENV_DIR="$DATA_DIR/venv"
@@ -180,8 +181,10 @@ if [ "$SKIP_SHORTCUTS" -eq 0 ]; then
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_GRAVAR" command "$BIN_DIR/tomenotas-hotkey-record"
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_GRAVAR" binding '<Super>r'
 
+    # O atalho de listar abre a janela de notas do daemon via D-Bus — como o
+    # de gravar, só funciona enquanto o tomenotas-daemon estiver rodando.
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LISTAR" name 'Tomenotas - Listar'
-    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LISTAR" command "$BIN_DIR/listar.sh"
+    gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LISTAR" command "$BIN_DIR/tomenotas-hotkey-window"
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LISTAR" binding '<Super>l'
 
     gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:"$KEY_LER" name 'Tomenotas - Ler'

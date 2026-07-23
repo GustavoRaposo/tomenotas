@@ -64,7 +64,7 @@ class ShortcutManager:
             ),
             "listar": Action(
                 "listar", "Tomenotas - Listar", "Listar notas",
-                str(bin_dir / "listar.sh"), "<Super>l",
+                str(bin_dir / "tomenotas-hotkey-window"), "<Super>l",
             ),
             "ler": Action(
                 "ler", "Tomenotas - Ler", "Ler nota atual",

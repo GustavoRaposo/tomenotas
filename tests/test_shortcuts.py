@@ -50,7 +50,7 @@ def test_acoes_apontam_para_os_comandos_certos():
     manager = ShortcutManager(BIN, run=GsettingsFalso())
     acoes = manager.acoes
     assert acoes["gravar"].comando == "/home/x/bin/tomenotas-hotkey-record"
-    assert acoes["listar"].comando == "/home/x/bin/listar.sh"
+    assert acoes["listar"].comando == "/home/x/bin/tomenotas-hotkey-window"
     assert acoes["ler"].comando == "/home/x/bin/ler.sh"
     assert acoes["gravar"].padrao == "<Super>r"
     assert acoes["listar"].padrao == "<Super>l"

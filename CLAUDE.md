@@ -56,15 +56,15 @@ still standalone scripts communicating through shared files under
   Entry point: `tomenotas-daemon = tomenotas.daemon:main` (console script;
   `install.sh` installs the package into a `--system-site-packages` venv at
   `~/.local/share/tomenotas/venv` and symlinks `~/bin/tomenotas-daemon`).
-- **`tomenotas-hotkey-record`** (Super+R) — thin bash D-Bus client, the target
-  of the record keybinding. Just calls `ToggleRecording()` via `gdbus`; if the
-  daemon isn't running the call fails silently, so the shortcut is dead unless
-  the app is open (this is the intended behavior — don't "fix" it by falling
-  back to `gravar.sh`).
-- **`gravar.sh`** — legacy standalone recorder (arecord + `recording.pid` +
-  whisper.cpp). Still installed for manual use, but no longer bound to a key.
-- **`listar.sh`** (Super+L) — lists all notes (newest first) via `zenity --list` and
-  writes the chosen note's path into `current_note`, the pointer file `ler.sh` reads.
+- **`tomenotas-hotkey-record`** (Super+R) / **`tomenotas-hotkey-window`**
+  (Super+L) — thin bash D-Bus clients, the targets of the record/list
+  keybindings. They just call `ToggleRecording()` / `ShowWindow()` via
+  `gdbus`; if the daemon isn't running the call fails silently, so the
+  shortcuts are dead unless the app is open (this is the intended behavior —
+  don't "fix" it by falling back to the legacy scripts).
+- **`gravar.sh`** / **`listar.sh`** — legacy standalone flows (arecord +
+  `recording.pid` + whisper.cpp; zenity list writing `current_note`). Still
+  installed for manual use, but no longer bound to keys.
 - **`ler.sh`** (Super+T) — reads `current_note` (falling back to the most recent note
   if none is selected or the pointer is stale) and pipes its text through Piper TTS,
   playing the resulting audio with `paplay`.
@@ -92,6 +92,7 @@ State/data layout (see README "Onde ficam os arquivos" for the authoritative lis
 ~/bin/{gravar,listar,ler}.sh
 ~/bin/tomenotas-daemon          # symlink into the venv below
 ~/bin/tomenotas-hotkey-record   # D-Bus client bound to Super+R
+~/bin/tomenotas-hotkey-window   # D-Bus client bound to Super+L
 ~/.config/tomenotas/config.json # whisper paths, read by the daemon
 ~/.local/share/tomenotas/
 ├── venv/              # daemon package install (system-site-packages)
