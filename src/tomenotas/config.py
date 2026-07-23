@@ -6,10 +6,12 @@ por variáveis de ambiente (TOMENOTAS_*) — útil em testes e debug.
 """
 
 import json
+import logging
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+log = logging.getLogger("tomenotas.config")
 
 CONFIG_PATH = Path("~/.config/tomenotas/config.json").expanduser()
 
@@ -53,10 +55,7 @@ class Config:
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
-                print(
-                    f"tomenotas: config inválida em {path}, usando padrões",
-                    file=sys.stderr,
-                )
+                log.warning("config inválida em %s, usando padrões", path)
                 data = {}
 
         padrao = cls()

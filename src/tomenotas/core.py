@@ -5,10 +5,13 @@ injeção (recorder, transcriber, notes, notifier), o que torna o módulo
 100% testável. A camada de cola (daemon.py) decide o que roda em thread.
 """
 
+import logging
 from enum import Enum, auto
 
 from .notes import NoteStore
 from .transcriber import TranscriptionError
+
+log = logging.getLogger("tomenotas.core")
 
 
 class State(Enum):
@@ -45,6 +48,7 @@ class DaemonCore:
     def _set_state(self, novo: State) -> None:
         if novo is self._state:
             return
+        log.info("estado: %s -> %s", self._state.name, novo.name)
         self._state = novo
         if self.on_state_change is not None:
             self.on_state_change(novo)
@@ -66,6 +70,7 @@ class DaemonCore:
         try:
             self._recorder.start()
         except FileNotFoundError:
+            log.error("arecord não encontrado")
             self._notifier.send(
                 "Erro", "arecord não encontrado. Instale o pacote alsa-utils."
             )
@@ -83,9 +88,11 @@ class DaemonCore:
             self._recorder.stop()
             texto = self._transcriber.transcribe(self._recorder.audio_tmp)
         except TranscriptionError as erro:
+            log.error("transcrição falhou: %s", erro)
             self._notifier.send("Erro", str(erro))
         else:
-            self._notes.save(texto)
+            caminho = self._notes.save(texto)
+            log.info("nota criada: %s", caminho)
             self._notifier.send("Nota criada", NoteStore.preview(texto))
         finally:
             self._recorder.audio_tmp.unlink(missing_ok=True)

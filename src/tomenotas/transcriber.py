@@ -1,7 +1,10 @@
 """Transcrição de áudio via whisper.cpp (subprocess)."""
 
+import logging
 import subprocess
 from pathlib import Path
+
+log = logging.getLogger("tomenotas.transcriber")
 
 
 class TranscriptionError(Exception):
@@ -24,6 +27,18 @@ class Transcriber:
     def transcribe(self, wav_path: Path) -> str:
         """Transcreve o .wav e devolve o texto. Levanta TranscriptionError
         (com mensagem pronta para o usuário) em qualquer falha."""
+        # Checagens com mensagens específicas (Fase 5), em vez do erro
+        # genérico de "falha ao transcrever":
+        if not wav_path.exists():
+            raise TranscriptionError(
+                "Áudio da gravação não encontrado. O microfone está funcionando?"
+            )
+        if not self._whisper_model.exists():
+            raise TranscriptionError(
+                f"Modelo do whisper não encontrado: {self._whisper_model}"
+            )
+
+        log.info("transcrevendo %s", wav_path)
         out_base = wav_path.with_name("tmp_transcricao")
         cmd = [
             str(self._whisper_bin),

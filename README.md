@@ -74,7 +74,7 @@ O instalador:
 
 ## Uso
 
-0. Inicie o daemon (ícone de microfone aparece na bandeja):
+0. O daemon inicia sozinho no login (autostart). Para iniciar manualmente:
    ```bash
    ~/bin/tomenotas-daemon &
    ```
@@ -105,9 +105,12 @@ Se algum atalho já estiver em uso por outro programa, ajuste em
 ~/bin/tomenotas-daemon          # daemon (link para o venv abaixo)
 ~/bin/tomenotas-hotkey-record   # cliente D-Bus chamado pelo Super+R
 ~/bin/tomenotas-hotkey-window   # cliente D-Bus chamado pelo Super+L
-~/.config/tomenotas/config.json # caminhos do whisper (lidos pelo daemon)
+~/.config/tomenotas/config.json # caminhos do whisper/piper (lidos pelo daemon)
+~/.config/autostart/tomenotas.desktop  # inicia o daemon no login
 ~/.local/share/tomenotas/
 ├── venv/               # pacote Python do daemon
+├── icons/              # ícones da bandeja (estado)
+├── daemon.log          # log do daemon (rotativo)
 ├── notes/              # suas notas de texto (.txt)
 ├── current_note        # ponteiro para a nota selecionada em listar.sh
 └── recording.pid        # usado só pelo gravar.sh legado, não pelo daemon
@@ -155,6 +158,11 @@ pytest          # roda a suíte com relatório de cobertura
 ```
 
 ## Solução de problemas
+
+**Primeiro passo**: veja o log do daemon —
+```bash
+tail -50 ~/.local/share/tomenotas/daemon.log
+```
 
 **`Rofi on wayland requires support for the layer shell protocol`**
 O GNOME não suporta o protocolo `layer-shell` que o rofi usa no Wayland. O

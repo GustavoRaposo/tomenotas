@@ -111,19 +111,21 @@ comportamento do teclado, sem precisar editar nada manualmente.
 **Critério de pronto:** dá pra saber o estado do app só olhando pro ícone
 na bandeja, sem abrir a janela.
 
-## Fase 5 — Polimento e distribuição
+## Fase 5 — Polimento e distribuição (concluído)
 
-- [ ] Iniciar automaticamente no login (arquivo `.desktop` em
+- [x] Iniciar automaticamente no login (arquivo `.desktop` em
       `~/.config/autostart/`)
-- [ ] Persistir configurações (atalhos, tamanho de modelo, voz escolhida)
-      em `~/.config/tomenotas/config.json`
-- [ ] Logging estruturado (arquivo de log em
+- [x] Persistir configurações (atalhos, tamanho de modelo, voz escolhida)
+      em `~/.config/tomenotas/config.json` (caminhos de modelo/voz no
+      config.json; atalhos persistem nos gsettings, geridos pela UI)
+- [x] Logging estruturado (arquivo de log em
       `~/.local/share/tomenotas/daemon.log`) para facilitar debug
-- [ ] Tratamento de erros na UI (ex: "microfone não encontrado", "modelo
+- [x] Tratamento de erros na UI (ex: "microfone não encontrado", "modelo
       whisper não carregado") em vez de falhar silenciosamente
-- [ ] Empacotar como `.deb` (ou pelo menos um instalador único que resolve
-      dependências Python via `venv`)
-- [ ] Atualizar `install.sh`/`uninstall.sh` para instalar/remover o daemon
+- [x] Empacotar como `.deb` (ou pelo menos um instalador único que resolve
+      dependências Python via `venv`) — atendido pelo install.sh + venv;
+      .deb fica como ideia futura no backlog
+- [x] Atualizar `install.sh`/`uninstall.sh` para instalar/remover o daemon
       e o autostart
 
 ## Ideias para depois (backlog, sem compromisso)
@@ -135,6 +137,8 @@ na bandeja, sem abrir a janela.
 - [ ] Suporte a múltiplas vozes Piper (trocar pela UI)
 - [ ] Avaliar `xdg-desktop-portal` GlobalShortcuts como alternativa nativa
       ao `gsettings custom-keybindings` (ver riscos abaixo)
+- [ ] Empacotar como `.deb` de verdade (hoje a distribuição é via
+      install.sh + venv)
 
 ## Riscos e pontos em aberto
 

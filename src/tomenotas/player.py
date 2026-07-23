@@ -38,6 +38,10 @@ class Player:
         Levanta PlayerError com mensagem pronta para o usuário."""
         if not texto.strip():
             raise PlayerError("A nota está vazia.")
+        if not self._piper_model.exists():
+            raise PlayerError(
+                f"Voz do Piper não encontrada: {self._piper_model}"
+            )
         self.stop()
 
         cmd = [

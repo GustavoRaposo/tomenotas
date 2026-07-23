@@ -19,8 +19,10 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 from gi.repository import AyatanaAppIndicator3 as AppIndicator  # noqa: E402
 
 from . import status  # noqa: E402
+from . import __version__  # noqa: E402
 from .config import Config  # noqa: E402
 from .core import DaemonCore, State, ToggleAction  # noqa: E402
+from .logs import setup_logging  # noqa: E402
 from .notes import NoteStore  # noqa: E402
 from .notify import Notifier  # noqa: E402
 from .player import Player  # noqa: E402
@@ -224,6 +226,8 @@ class TrayDaemon:
 
 def main():
     config = Config.load()
+    log = setup_logging(config.base_dir / "daemon.log")
+    log.info("daemon iniciando (tomenotas %s)", __version__)
     notifier = Notifier()
     store = NoteStore(config.notes_dir)
     player = Player(config.piper_bin, config.piper_model, config.tts_tmp)
@@ -240,6 +244,7 @@ def main():
     # Ctrl+C no terminal encerra limpo (útil ao rodar o daemon na mão)
     signal.signal(signal.SIGINT, lambda *_: app.quit())
     Gtk.main()
+    log.info("daemon encerrado")
 
 
 if __name__ == "__main__":

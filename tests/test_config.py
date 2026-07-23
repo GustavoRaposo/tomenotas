@@ -73,9 +73,9 @@ def test_env_tem_precedencia_sobre_o_json(tmp_path, monkeypatch):
     assert cfg.language == "es"
 
 
-def test_json_invalido_avisa_e_usa_padroes(tmp_path, capsys):
+def test_json_invalido_avisa_e_usa_padroes(tmp_path, caplog):
     arquivo = tmp_path / "config.json"
     arquivo.write_text("{ nada a ver")
     cfg = Config.load(arquivo)
     assert cfg == Config()
-    assert "config inválida" in capsys.readouterr().err
+    assert "config inválida" in caplog.text

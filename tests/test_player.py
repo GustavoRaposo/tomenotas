@@ -24,8 +24,11 @@ class PaplayFalso:
 
 
 def monta_player(tmp_path, sintetiza=True, piper_ausente=False,
-                 paplay_ausente=False):
+                 paplay_ausente=False, voz_ausente=False):
     tts_tmp = tmp_path / "tmp_tts.wav"
+    voz = tmp_path / "voz.onnx"
+    if not voz_ausente:
+        voz.write_bytes(b"onnx")
     execucoes = []
     spawns = []
     paplay = PaplayFalso()
@@ -44,7 +47,7 @@ def monta_player(tmp_path, sintetiza=True, piper_ausente=False,
         return paplay
 
     player = Player(
-        Path("/p/piper"), Path("/p/voz.onnx"), tts_tmp,
+        Path("/p/piper"), voz, tts_tmp,
         run=run_falso, popen=popen_falso,
     )
     return player, execucoes, spawns, paplay, tts_tmp
@@ -55,7 +58,7 @@ def test_play_sintetiza_e_toca(tmp_path):
     player.play("olá mundo")
 
     (cmd, kwargs) = execucoes[0]
-    assert cmd == ["/p/piper", "--model", "/p/voz.onnx",
+    assert cmd == ["/p/piper", "--model", str(tmp_path / "voz.onnx"),
                    "--output_file", str(tts_tmp)]
     assert kwargs["input"] == "olá mundo".encode()
     assert spawns == [["paplay", str(tts_tmp)]]
@@ -74,6 +77,13 @@ def test_piper_ausente_levanta_erro(tmp_path):
     with pytest.raises(PlayerError, match="Piper não encontrado"):
         player.play("texto")
     assert not player.is_playing
+
+
+def test_voz_ausente_tem_mensagem_especifica(tmp_path):
+    player, execucoes, _, _, _ = monta_player(tmp_path, voz_ausente=True)
+    with pytest.raises(PlayerError, match="Voz do Piper não encontrada"):
+        player.play("texto")
+    assert execucoes == []  # nem tentou sintetizar
 
 
 def test_sintese_sem_saida_levanta_erro(tmp_path):

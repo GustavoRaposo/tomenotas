@@ -72,6 +72,18 @@ echo "==> Instalando ícones da bandeja..."
 mkdir -p "$DATA_DIR/icons"
 cp "$SCRIPT_DIR/assets/icons/"*.svg "$DATA_DIR/icons/"
 
+echo "==> Configurando início automático no login..."
+mkdir -p "$HOME/.config/autostart"
+cat > "$HOME/.config/autostart/tomenotas.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Tomenotas
+Comment=Assistente de notas de voz (STT/TTS offline)
+Exec=$BIN_DIR/tomenotas-daemon
+Icon=audio-input-microphone
+X-GNOME-Autostart-enabled=true
+EOF
+
 # Caminhos padrão (as seções abaixo refinam quando instalam de verdade);
 # no fim, tudo vai para ~/.config/tomenotas/config.json, lido pelo daemon.
 WHISPER_BIN_PATH="$WHISPER_DIR/build/bin/whisper-cli"

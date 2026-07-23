@@ -46,6 +46,10 @@ still standalone scripts communicating through shared files under
     (no pulse) if that dir is missing. `DaemonCore.on_state_change` is the
     observer hook — it may fire from the transcription worker thread, so
     the glue wraps it in `GLib.idle_add`.
+  - `logs.py` — Fase 5 structured logging: modules log via
+    `logging.getLogger("tomenotas.<mod>")`; `setup_logging()` (called in
+    `daemon.main`) attaches a rotating file handler writing to
+    `~/.local/share/tomenotas/daemon.log` (idempotent per target file).
   - `daemon.py` + `window.py` + `settings_window.py` — the **glue layer**:
     GTK main loop, `AyatanaAppIndicator3` tray with
     "Abrir"/"Configurações"/"Sair", D-Bus name `com.tomenotas.Daemon` at
@@ -141,7 +145,9 @@ copies have placeholder paths.
 
 ## Roadmap context
 
-See `ROADMAP.md` for the v2 plan. Fases 0–4 are done (bash scripts; daemon
-skeleton with tray + D-Bus; GTK notes window; settings window for hotkeys;
-state-reflecting tray icons with pulse). Next up is Fase 5 (autostart,
-logging, packaging) — none of that exists yet.
+See `ROADMAP.md` for the v2 plan. All fases (0–5) are done: bash scripts;
+daemon skeleton with tray + D-Bus; GTK notes window; settings window for
+hotkeys; state-reflecting tray icons with pulse; autostart + structured
+logging + specific error messages. Remaining ideas (SQLite storage, note
+export/editing, multiple voices, `.deb` packaging, GlobalShortcuts portal)
+live in the ROADMAP backlog — none of those exist yet.
