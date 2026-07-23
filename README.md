@@ -54,10 +54,12 @@ demais dependências vêm do apt do próprio Ubuntu, declaradas no pacote.
 ## Instalação
 
 A instalação é via pacote `.deb` — um único caminho, sem compilar nada na
-sua máquina:
+sua máquina. Baixe o `.deb` mais recente na
+[página de releases](https://github.com/GustavoRaposo/take-a-note/releases)
+e instale:
 
 ```bash
-sudo apt install ./tomenotas_0.2.0_amd64.deb
+sudo apt install ./tomenotas_1.0.0_amd64.deb
 ```
 
 O `apt` resolve as dependências declaradas no pacote. Na primeira vez que
@@ -77,7 +79,7 @@ Se você clonou o repositório em vez de baixar um `.deb` pronto:
 
 ```bash
 ./packaging/build-deb.sh    # requer git, cmake, build-essential e wget
-sudo apt install ./dist/tomenotas_0.2.0_amd64.deb
+sudo apt install ./dist/tomenotas_1.0.0_amd64.deb
 ```
 
 O script compila um `whisper-cli` estático (whisper.cpp v1.9.1, sem
