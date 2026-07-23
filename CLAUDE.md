@@ -35,17 +35,24 @@ still standalone scripts communicating through shared files under
   - `config.py` — reads `~/.config/tomenotas/config.json` (written by
     `install.sh`; whisper + piper paths) with `TOMENOTAS_*` env overrides.
     This replaced the old sed-patching for the daemon.
-  - `daemon.py` + `window.py` — the **glue layer**: GTK main loop,
-    `AyatanaAppIndicator3` tray with "Abrir"/"Sair", D-Bus name
-    `com.tomenotas.Daemon` at `/com/tomenotas/Daemon` with
-    `ToggleRecording()`/`ShowWindow()`/`Ping()`, threading for slow work
-    (transcription, TTS synthesis), and the Fase 2 notes window (list with
-    preview, search filter, play/pause per note, delete with confirmation;
-    closing hides — the daemon stays in the tray). Deliberately thin and
-    dumb: they only build widgets and delegate to the tested core. Both are
-    **excluded from coverage** (pyproject omit) — keep new behavior out of
-    them and in the core. Recording state lives in-process — no
-    `recording.pid`.
+  - `shortcuts.py` — GNOME keybindings via the `gsettings` CLI (injectable
+    run): get/set the three tomenotas custom-keybindings (same ids/paths
+    `install.sh` registers) and conflict detection (`list_conflicts`) across
+    wm/shell/mutter/media-keys schemas and other custom entries.
+  - `daemon.py` + `window.py` + `settings_window.py` — the **glue layer**:
+    GTK main loop, `AyatanaAppIndicator3` tray with
+    "Abrir"/"Configurações"/"Sair", D-Bus name `com.tomenotas.Daemon` at
+    `/com/tomenotas/Daemon` with
+    `ToggleRecording()`/`ShowWindow()`/`ShowSettings()`/`Ping()`, threading
+    for slow work (transcription, TTS synthesis), the Fase 2 notes window
+    (list with preview, search filter, play/pause per note, delete with
+    confirmation) and the Fase 3 settings window (click a field, press the
+    new key combo → applied to gsettings immediately, with a conflict
+    warning dialog; window close hides — the daemon stays in the tray).
+    Deliberately thin and dumb: they only build widgets and delegate to the
+    tested core. All three are **excluded from coverage** (pyproject omit) —
+    keep new behavior out of them and in the core. Recording state lives
+    in-process — no `recording.pid`.
   Entry point: `tomenotas-daemon = tomenotas.daemon:main` (console script;
   `install.sh` installs the package into a `--system-site-packages` venv at
   `~/.local/share/tomenotas/venv` and symlinks `~/bin/tomenotas-daemon`).
@@ -127,7 +134,8 @@ copies have placeholder paths.
 ## Roadmap context
 
 See `ROADMAP.md` for the v2 plan. Fase 0 (bash scripts), Fase 1 (daemon
-skeleton: tray icon, D-Bus service, recording migrated into the daemon) and
-Fase 2 (GTK notes window: list/search/play/delete) are done. Next up is Fase 3
-(hotkey configuration UI) — that and the state-reflecting tray icons (Fase 4)
+skeleton: tray icon, D-Bus service, recording migrated into the daemon),
+Fase 2 (GTK notes window: list/search/play/delete) and Fase 3 (settings
+window for rebinding hotkeys with conflict warning) are done. Next up is
+Fase 4 (state-reflecting tray icons) — that and Fase 5 (autostart/packaging)
 don't exist yet.

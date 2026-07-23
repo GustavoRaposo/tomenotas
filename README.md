@@ -83,8 +83,11 @@ O instalador:
    pelo menu da bandeja ("Sair") para desativá-lo.
 2. Menu da bandeja → **Abrir** → janela com todas as notas: busca por texto,
    botão ▶ para ouvir cada nota (vira ⏸ enquanto toca) e 🗑 para apagar.
-3. **Super+L** → escolhe uma nota na lista (fluxo alternativo via zenity).
-4. **Super+T** → ouve a nota selecionada.
+3. Menu da bandeja → **Configurações** → troque os 3 atalhos: clique no
+   campo, pressione a nova combinação e pronto (efeito imediato; avisa se a
+   combinação já estiver em uso por outro app).
+4. **Super+L** → escolhe uma nota na lista (fluxo alternativo via zenity).
+5. **Super+T** → ouve a nota selecionada.
 
 Se algum atalho já estiver em uso por outro programa, ajuste em
 **Configurações → Teclado → Atalhos personalizados**.

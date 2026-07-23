@@ -83,15 +83,15 @@ nada (a chamada D-Bus falha silenciosamente).
 **Critério de pronto:** dá pra abrir a janela, ver todas as notas, tocar
 qualquer uma com um clique, e apagar sem terminal.
 
-## Fase 3 — Atalhos configuráveis pela UI
+## Fase 3 — Atalhos configuráveis pela UI (concluído)
 
-- [ ] Aba/janela de "Configurações" com 3 campos de atalho (gravar, listar,
+- [x] Aba/janela de "Configurações" com 3 campos de atalho (gravar, listar,
       ler) usando um widget de captura de tecla (`Gtk.EventControllerKey`
       ou similar)
-- [ ] Ao salvar, o daemon atualiza os `gsettings custom-keybindings`
+- [x] Ao salvar, o daemon atualiza os `gsettings custom-keybindings`
       automaticamente (equivalente ao que o `install.sh` faz hoje, mas via
       UI em vez de flags de linha de comando)
-- [ ] Validação de conflito (avisar se o atalho já está em uso por outro
+- [x] Validação de conflito (avisar se o atalho já está em uso por outro
       app do sistema, quando possível detectar)
 
 **Critério de pronto:** mudar um atalho na UI reflete imediatamente no

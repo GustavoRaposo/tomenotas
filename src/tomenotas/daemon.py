@@ -24,6 +24,8 @@ from .notes import NoteStore  # noqa: E402
 from .notify import Notifier  # noqa: E402
 from .player import Player  # noqa: E402
 from .recorder import Recorder  # noqa: E402
+from .settings_window import SettingsWindow  # noqa: E402
+from .shortcuts import ShortcutManager  # noqa: E402
 from .transcriber import Transcriber  # noqa: E402
 from .window import NotesWindow  # noqa: E402
 
@@ -35,6 +37,7 @@ INTROSPECTION_XML = """
   <interface name="com.tomenotas.Daemon">
     <method name="ToggleRecording"/>
     <method name="ShowWindow"/>
+    <method name="ShowSettings"/>
     <method name="Ping">
       <arg type="s" name="reply" direction="out"/>
     </method>
@@ -45,13 +48,16 @@ INTROSPECTION_XML = """
 
 class TrayDaemon:
     def __init__(self, core: DaemonCore, config: Config, store: NoteStore,
-                 player: Player, notifier: Notifier):
+                 player: Player, notifier: Notifier,
+                 shortcuts: ShortcutManager):
         self._core = core
         self._config = config
         self._store = store
         self._player = player
         self._notifier = notifier
+        self._shortcuts = shortcuts
         self._window = None  # criada sob demanda no primeiro "Abrir"
+        self._settings = None  # idem, no primeiro "Configurações"
         self._setup_indicator()
         self._setup_dbus()
 
@@ -72,6 +78,10 @@ class TrayDaemon:
         item_abrir.connect("activate", self.on_abrir)
         menu.append(item_abrir)
 
+        item_config = Gtk.MenuItem(label="Configurações")
+        item_config.connect("activate", self.on_configuracoes)
+        menu.append(item_config)
+
         item_sair = Gtk.MenuItem(label="Sair")
         item_sair.connect("activate", self.on_sair)
         menu.append(item_sair)
@@ -89,6 +99,16 @@ class TrayDaemon:
         self._window.refresh()
         self._window.show_all()
         self._window.present()
+
+    def on_configuracoes(self, _item):
+        self.show_settings()
+
+    def show_settings(self):
+        if self._settings is None:
+            self._settings = SettingsWindow(self._shortcuts, self._notifier)
+        self._settings.refresh()
+        self._settings.show_all()
+        self._settings.present()
 
     def on_sair(self, _item):
         self.quit()
@@ -135,6 +155,9 @@ class TrayDaemon:
         elif method == "ShowWindow":
             self.show_window()
             invocation.return_value(None)
+        elif method == "ShowSettings":
+            self.show_settings()
+            invocation.return_value(None)
         elif method == "Ping":
             invocation.return_value(GLib.Variant("(s)", ("pong",)))
 
@@ -161,7 +184,8 @@ def main():
         notes=store,
         notifier=notifier,
     )
-    app = TrayDaemon(core, config, store, player, notifier)
+    shortcuts = ShortcutManager(config.bin_dir)
+    app = TrayDaemon(core, config, store, player, notifier, shortcuts)
     # Ctrl+C no terminal encerra limpo (útil ao rodar o daemon na mão)
     signal.signal(signal.SIGINT, lambda *_: app.quit())
     Gtk.main()

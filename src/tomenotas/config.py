@@ -21,6 +21,7 @@ class Config:
     piper_bin: Path = Path.home() / "piper/piper"
     piper_model: Path = Path.home() / "piper/pt_BR-faber-medium.onnx"
     base_dir: Path = Path.home() / ".local/share/tomenotas"
+    bin_dir: Path = Path.home() / "bin"
     language: str = "pt"
 
     @property
@@ -72,6 +73,7 @@ class Config:
                 "piper_model", "TOMENOTAS_PIPER_MODEL", padrao.piper_model
             ),
             base_dir=caminho("base_dir", "TOMENOTAS_BASE_DIR", padrao.base_dir),
+            bin_dir=caminho("bin_dir", "TOMENOTAS_BIN_DIR", padrao.bin_dir),
             language=os.environ.get("TOMENOTAS_LANGUAGE")
             or data.get("language")
             or padrao.language,

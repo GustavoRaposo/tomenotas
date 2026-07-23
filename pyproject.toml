@@ -28,7 +28,7 @@ testpaths = ["tests"]
 addopts = "--cov=tomenotas --cov-report=term-missing --cov-fail-under=90"
 
 [tool.coverage.run]
-# daemon.py e window.py são a camada de cola GTK/AppIndicator/D-Bus: mantidas
-# finas e burras (só delegam para o núcleo testado) e validadas manualmente —
-# ver CLAUDE.md.
-omit = ["*/daemon.py", "*/window.py"]
+# daemon.py, window.py e settings_window.py são a camada de cola
+# GTK/AppIndicator/D-Bus: mantidas finas e burras (só delegam para o núcleo
+# testado) e validadas manualmente — ver CLAUDE.md.
+omit = ["*/daemon.py", "*/window.py", "*/settings_window.py"]

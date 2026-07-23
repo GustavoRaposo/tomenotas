@@ -20,6 +20,12 @@ def test_padroes_do_piper():
     assert cfg.piper_model == Path.home() / "piper/pt_BR-faber-medium.onnx"
 
 
+def test_bin_dir_padrao_e_override(tmp_path, monkeypatch):
+    assert Config().bin_dir == Path.home() / "bin"
+    monkeypatch.setenv("TOMENOTAS_BIN_DIR", "/opt/bin")
+    assert Config.load(tmp_path / "nada.json").bin_dir == Path("/opt/bin")
+
+
 def test_load_sem_arquivo_usa_padroes(tmp_path):
     cfg = Config.load(tmp_path / "inexistente.json")
     assert cfg == Config()
