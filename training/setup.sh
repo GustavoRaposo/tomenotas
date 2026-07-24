@@ -77,6 +77,10 @@ fi
 [ -f piper-sample-generator/models/en-us-libritts-high.pt ] || \
   wget -q -O piper-sample-generator/models/en-us-libritts-high.pt \
     "https://github.com/rhasspy/piper-sample-generator/releases/download/v1.0.0/en-us-libritts-high.pt"
+# PyTorch 2.6 mudou o default de weights_only p/ True; o modelo do Piper é
+# um objeto completo (não só pesos). Confiamos na fonte → weights_only=False.
+sed -i 's/torch.load(model_path)/torch.load(model_path, weights_only=False)/' \
+  piper-sample-generator/generate_samples.py
 
 echo "==> Baixando os modelos base do openWakeWord (melspec + embedding)..."
 mkdir -p openwakeword/openwakeword/resources/models
