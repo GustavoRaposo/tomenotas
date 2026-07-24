@@ -85,6 +85,27 @@ def test_detector_fires_on_detected_when_predict_crosses_threshold():
     assert len(fired) == 1
 
 
+def test_debug_logs_scores_above_the_floor(caplog):
+    import logging
+    scores = iter([0.05, 0.4, 0.9])
+    det = WakeWordDetector(predict=lambda _f: next(scores), threshold=0.5,
+                           debug=True)
+    with caplog.at_level(logging.INFO, logger="tomenotas.wakeword"):
+        det._pump(FakeStdout([FRAME, FRAME, FRAME]), lambda: None)
+    logged = "\n".join(caplog.messages)
+    assert "0.05" not in logged     # below the floor → not logged
+    assert "wake score: 0.40" in logged
+    assert "DETECTED" in logged     # the 0.9 fired
+
+
+def test_no_score_logging_without_debug(caplog):
+    import logging
+    det = WakeWordDetector(predict=lambda _f: 0.4, threshold=0.5)  # debug off
+    with caplog.at_level(logging.INFO, logger="tomenotas.wakeword"):
+        det._pump(FakeStdout([FRAME, FRAME]), lambda: None)
+    assert "wake score" not in "\n".join(caplog.messages)
+
+
 def test_detector_skips_a_frame_whose_prediction_errors():
     scores = iter([0.0, 0.9])
 

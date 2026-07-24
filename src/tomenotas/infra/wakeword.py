@@ -50,14 +50,22 @@ class WakeWordGate:
         return False
 
 
+# in debug mode, log any score at/above this so you can watch it react
+# and tune the threshold ("quase disparou: 0.45") without log spam
+DEBUG_SCORE_FLOOR = 0.3
+
+
 class WakeWordDetector:
     def __init__(self, predict, threshold: float = 0.5,
                  cooldown: int = DEFAULT_COOLDOWN,
-                 popen=subprocess.Popen, capture_cmd=None):
+                 popen=subprocess.Popen, capture_cmd=None,
+                 debug: bool = False):
         self._predict = predict  # (frame_bytes) -> float
+        self._threshold = threshold
         self._gate = WakeWordGate(threshold, cooldown)
         self._popen = popen
         self._capture_cmd = capture_cmd or CAPTURE_CMD
+        self._debug = debug
         self._proc = None
         self._thread = None
 
@@ -68,6 +76,8 @@ class WakeWordDetector:
     def start(self, on_detected) -> None:
         """Starts capturing and detecting. on_detected() fires from the
         reader thread — the glue hops to the main loop."""
+        log.info("wake word: listening (threshold=%.2f%s)", self._threshold,
+                 ", debug" if self._debug else "")
         self._proc = self._popen(
             self._capture_cmd, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -88,8 +98,10 @@ class WakeWordDetector:
             except Exception as error:  # a bad frame must not kill listening
                 log.warning("wake-word predict failed: %s", error)
                 continue
+            if self._debug and score >= DEBUG_SCORE_FLOOR:
+                log.info("wake score: %.2f", score)
             if self._gate.feed(score):
-                log.info("wake word detected")
+                log.info("wake word DETECTED (score=%.2f)", score)
                 on_detected()
 
     def stop(self, timeout: float = 3) -> None:

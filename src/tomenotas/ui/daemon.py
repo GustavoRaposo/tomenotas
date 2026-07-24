@@ -441,7 +441,11 @@ def _build_wakeword(config):
     predict = load_predict(config.wakeword_model_path)
     if predict is None:
         return None
-    return WakeWordDetector(predict, threshold=config.wakeword_threshold)
+    # TOMENOTAS_WAKEWORD_DEBUG=1 logs live scores (tail the daemon.log) to
+    # help tune the sensitivity threshold.
+    debug = bool(os.environ.get("TOMENOTAS_WAKEWORD_DEBUG"))
+    return WakeWordDetector(predict, threshold=config.wakeword_threshold,
+                            debug=debug)
 
 
 if __name__ == "__main__":
