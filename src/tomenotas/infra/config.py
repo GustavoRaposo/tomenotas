@@ -44,6 +44,9 @@ class Config:
     alarm_sound: Path | None = None  # None → freedesktop default below
     # keyboard-shortcut backend: "auto" | "gsettings" | "portal"
     shortcut_backend: str = "auto"
+    # wake word (always-on voice trigger): opt-in, off by default (privacy)
+    wakeword_enabled: bool = False
+    wakeword_threshold: float = 0.5
     # live transcription (whisper-stream): opt-in preview during recording
     stream_enabled: bool = False
     stream_model: str = "base"  # tiny/base — must keep up in real time
@@ -120,6 +123,11 @@ class Config:
     def stream_model_path(self) -> Path:
         return self.models_dir / f"ggml-{self.stream_model}.bin"
 
+    @property
+    def wakeword_model_path(self) -> Path:
+        # the custom "Tomenotas" wake-word ONNX model
+        return self.models_dir / "tomenotas-ww.onnx"
+
     @classmethod
     def load(cls, path: Path | None = None) -> "Config":
         """Loads the config from json (if present), with env var overrides.
@@ -173,6 +181,8 @@ class Config:
             stream_enabled=bool(data.get("stream_enabled", False)),
             stream_model=_one_of(data.get("stream_model"),
                                  ("tiny", "base"), "base"),
+            wakeword_enabled=bool(data.get("wakeword_enabled", False)),
+            wakeword_threshold=_float_or(data.get("wakeword_threshold"), 0.5),
         )
 
 
@@ -184,6 +194,14 @@ def _int_or(raw, default: int) -> int:
     try:
         value = int(raw)
         return value if value > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _float_or(raw, default: float) -> float:
+    try:
+        value = float(raw)
+        return value if 0.0 < value <= 1.0 else default
     except (TypeError, ValueError):
         return default
 
