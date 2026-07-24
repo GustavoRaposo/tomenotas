@@ -10,9 +10,16 @@ onde o daemon procura (`~/.local/share/tomenotas/models/tomenotas-ww.onnx`).
 
 - **GPU NVIDIA** com driver (uma GTX 1650 4GB dá conta — o config já vem
   com batches reduzidos para caber em 4GB).
-- Linux, `git`, `wget`, `ffmpeg`, Python 3.
+- Linux, `git`, `wget`, `ffmpeg`.
 - **~30 GB livres** e **algumas horas** (o gargalo é gerar as amostras e
   baixar os dados negativos, não o treino em si).
+- **Python 3.10–3.12** para o treino. O ecossistema de ML (torch etc.)
+  ainda **não** tem wheels para Python 3.13/3.14 — se o seu `python3` for
+  3.13+ (como no Ubuntu mais novo), o `setup.sh` obtém um Python 3.11
+  standalone automaticamente via [`uv`](https://docs.astral.sh/uv/)
+  (sem sudo). O TensorFlow/tflite e o `speexdsp-ns` são pulados de
+  propósito: só servem para a conversão `.tflite` e supressão de ruído,
+  que não usamos (runtime só-ONNX).
 
 ## Passo a passo
 
