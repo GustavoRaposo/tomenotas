@@ -45,9 +45,13 @@ echo "==> Instalando PyTorch (CUDA) — pode baixar ~2.5GB..."
 pip install -q torch torchaudio
 
 echo "==> Deps de treino (sem TensorFlow/tflite/speex — não usados p/ ONNX)..."
+# datasets<3: as versões novas (4.x) exigem torchcodec para ler áudio; o
+# pipeline usa a decodificação antiga via soundfile. datasets só é usado
+# no nosso download de dados (o train.py não o importa), então é seguro.
 pip install -q torchinfo torchmetrics speechbrain audiomentations \
-    torch-audiomentations datasets scipy scikit-learn numpy pyyaml tqdm \
-    mutagen acoustics onnx onnxruntime requests piper-phonemize webrtcvad
+    torch-audiomentations "datasets<3" soundfile scipy scikit-learn numpy \
+    pyyaml tqdm mutagen acoustics onnx onnxruntime requests \
+    piper-phonemize webrtcvad
 
 echo "==> Clonando o openWakeWord (sem deps — já instaladas; evita TF/speex)..."
 [ -d openwakeword ] || git clone --depth 1 https://github.com/dscripka/openwakeword
