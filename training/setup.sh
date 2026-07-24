@@ -56,8 +56,8 @@ echo "==> Deps de treino (sem TensorFlow/tflite/speex — não usados p/ ONNX)..
 # pipeline usa a decodificação antiga via soundfile. datasets só é usado
 # no nosso download de dados (o train.py não o importa), então é seguro.
 pip install -q torchinfo torchmetrics speechbrain audiomentations \
-    torch-audiomentations "datasets<3" soundfile scipy scikit-learn numpy \
-    pyyaml tqdm mutagen acoustics onnx onnxruntime requests \
+    torch-audiomentations "datasets<3" soundfile "scipy<1.15" scikit-learn \
+    numpy pyyaml tqdm mutagen acoustics onnx onnxruntime requests \
     pronouncing espeak-phonemizer webrtcvad
 
 echo "==> Clonando o openWakeWord (sem deps — já instaladas; evita TF/speex)..."
